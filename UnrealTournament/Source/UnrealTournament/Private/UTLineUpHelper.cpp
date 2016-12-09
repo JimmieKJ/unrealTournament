@@ -228,6 +228,7 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 		for (AUTCharacter* UTChar : PlayerPreviewCharacters)
 		{
 			UTChar->TurnOff();
+			UTChar->DeactivateSpawnProtection();
 			ForceCharacterAnimResetForLineUp(UTChar);
 			SpawnPlayerWeapon(UTChar);
 		}
