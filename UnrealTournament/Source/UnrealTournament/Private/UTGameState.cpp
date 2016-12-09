@@ -2298,7 +2298,7 @@ void AUTGameState::PrepareForIntermission()
 {
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
+		if (Cast<AUTRemoteRedeemer>(It->Get()))
 		{
 			TArray<USceneComponent*> Components;
 			(*It)->GetComponents<USceneComponent>(Components);

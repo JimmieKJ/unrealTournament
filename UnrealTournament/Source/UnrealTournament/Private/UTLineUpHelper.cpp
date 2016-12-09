@@ -433,7 +433,7 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 
 			PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
 			PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
-			PreviewChar->ClientSetRotation(SpawnTransform.GetRotation().Rotator());
+			PreviewChar->Controller->ClientSetRotation(SpawnTransform.GetRotation().Rotator());
 
 			PreviewChar->bIsTranslocating = false;
 		}
