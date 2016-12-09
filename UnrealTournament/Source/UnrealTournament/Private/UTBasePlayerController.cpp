@@ -473,6 +473,10 @@ void AUTBasePlayerController::StartGUIDJoin()
 		OnCancelGUIDFindSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegate);
 		OnlineSessionInterface->CancelFindSessions();
 	}
+	else
+	{
+		UE_LOG(UT,Warning,TEXT("Not in a proper session.  Things will be broken."));
+	}
 }
 
 void AUTBasePlayerController::OnCancelGUIDFindSessionComplete(bool bWasSuccessful)
@@ -488,6 +492,11 @@ void AUTBasePlayerController::OnCancelGUIDFindSessionComplete(bool bWasSuccessfu
 		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegateHandle);
 		AttemptGUIDJoin();
 	}
+	else
+	{
+		UE_LOG(UT,Warning,TEXT("Did not have valid search settings after a cancel.  Things will be broken."));
+	}
+
 }
 
 
@@ -517,16 +526,16 @@ void AUTBasePlayerController::AttemptGUIDJoin()
 
 		TSharedRef<FUTOnlineGameSearchBase> SearchSettingsRef = GUIDSessionSearchSettings.ToSharedRef();
 
-		if (OnlineSessionInterface.IsValid())
-		{
-			OnlineSessionInterface->CancelFindSessions();				
-		}
-
 		OnFindGUIDSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnFindSessionsComplete);
 		OnFindGUIDSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(OnFindGUIDSessionCompleteDelegate);
 
 		OnlineSessionInterface->FindSessions(0, SearchSettingsRef);
 	}
+	else
+	{
+		UE_LOG(UT,Warning,TEXT("No Session to Join.  Things will be broken."));
+	}
+
 }
 
 void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)

@@ -2963,7 +2963,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 		bJoinSessionInProgress = true;
 
 		PendingSession = SearchResult;
-		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
+		if (OnlineSessionInterface->GetSessionSettings(GameSessionName) != nullptr)
 		{
 			UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
 			bDelayedJoinSession = true;
@@ -3148,7 +3148,7 @@ void UUTLocalPlayer::LeaveSession()
 	if (OnlineIdentityInterface.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
-		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->GetSessionSettings(GameSessionName) != nullptr)
 		{
 			OnlineSessionInterface->EndSession(GameSessionName);
 		}
