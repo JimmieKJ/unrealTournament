@@ -153,8 +153,8 @@
 			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win32Exe" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win32Binaries" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win64Exe" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win64Binaries" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 		
-			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win32Exe-Win32" FinalVersion="$(BuildVersion)-Win32" CloudDir="$(CloudDir)"/>
-			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win64Exe-Windows" FinalVersion="$(BuildVersion)-Windows" CloudDir="$(CloudDir)"/>
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win32Exe-Win32" FinalVersion="$(BuildVersion)-Win32" Platform="Windows" CloudDir="$(CloudDir)"/>
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win64Exe-Windows" FinalVersion="$(BuildVersion)-Windows" Platform="Windows" CloudDir="$(CloudDir)"/>
 		</Node>
 		<Node Name="Post WindowsNoEditor" Requires="Chunk WindowsNoEditor">
 			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
@@ -164,8 +164,8 @@
 		</Node>
 		<Node Name="Publish WindowsNoEditor" Requires="Stage WindowsNoEditor">
 			<Copy Files="..." From="$(LocalStagingDir)/WindowsNoEditor" To="$(BuildDir)/WindowsNoEditor"/>
-			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
-			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
+			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" Platform="Windows" If="$(EnableSymStore)"/>
+			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" Platform="Windows" If="$(EnableSymStore)"/>
 		</Node>
 	</Agent>
 	
@@ -178,7 +178,7 @@
 		</Node>
 		<Node Name="Publish WindowsServer Win64" Requires="Stage Windows Server Win64">
 			<Copy Files="..." From="$(LocalStagingDir)/WindowsServer" To="$(BuildDir)/WindowsServer"/>
-			<SymStore Files="#Compile UT Server Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournamentServer" If="$(EnableSymStore)"/>
+			<SymStore Files="#Compile UT Server Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournamentServer" Platform="Windows" If="$(EnableSymStore)"/>
 		</Node>
 	</Agent>
 
@@ -268,8 +268,8 @@
 			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
 			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="'$(EnableSymStore)' == true And ('$(WithWindowsClients)' == true Or '$(WithWindowsClients)' == true)"/>
 			<SrcSrv BinaryFiles="#BinaryFiles_Server" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="'$(EnableSymStore)' == true And '$(WithWin64Server)' == true"/>
-			<SymStore Files="#BinaryFiles" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore) And ('$(WithWindowsClients)' == true Or '$(WithWindowsClients)' == true)"/>
-			<SymStore Files="#BinaryFiles_Server" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore) And '$(WithWin64Server)' == true"/>
+			<SymStore Files="#BinaryFiles" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" Platform="Windows" If="$(EnableSymStore) And ('$(WithWindowsClients)' == true Or '$(WithWindowsClients)' == true)"/>
+			<SymStore Files="#BinaryFiles_Server" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" Platform="Windows" If="$(EnableSymStore) And '$(WithWin64Server)' == true"/>
 		</Node>
 	</Agent>
 
