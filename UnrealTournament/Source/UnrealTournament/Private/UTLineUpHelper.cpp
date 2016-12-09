@@ -252,42 +252,23 @@ void AUTLineUpHelper::FlagFixUp()
 
 			if (OffenseFlag)
 			{
-				AUTPlayerController* UTPC = nullptr;
-				AUTBot* UTBotController = nullptr;
-
+				AController* FlagController = nullptr;
 				if (OffenseFlag->Holder)
 				{
-					UTPC = Cast<AUTPlayerController>(OffenseFlag->Holder->GetOwner());
-					UTBotController = Cast<AUTBot>(OffenseFlag->Holder->GetOwner());
+					FlagController = Cast<AController>(OffenseFlag->Holder->GetOwner());
 				}
 				else if (OffenseFlag->LastHolder)
 				{
-					UTPC = Cast<AUTPlayerController>(OffenseFlag->LastHolder->GetOwner());
-					UTBotController = Cast<AUTBot>(OffenseFlag->Holder->GetOwner());
+					FlagController = Cast<AController>(OffenseFlag->LastHolder->GetOwner());
 				}
 
-				if (UTPC)
+				if (FlagController && FlagController->GetPawn())
 				{
-					if (UTPC->GetPawn())
-					{
-						OffenseFlag->SetHolder(Cast<AUTCharacter>(UTPC->GetPawn()));
-					}
-					else
-					{
-						OffenseFlag->Destroy();
-					}
+					OffenseFlag->SetHolder(Cast<AUTCharacter>(FlagController->GetPawn()));
 				}
-
-				if (UTBotController)
+				else
 				{
-					if (UTPC->GetPawn())
-					{
-						OffenseFlag->SetHolder(Cast<AUTCharacter>(UTBotController->GetPawn()));
-					}
-					else
-					{
-						OffenseFlag->Destroy();
-					}
+					OffenseFlag->Destroy();
 				}
 			}
 		}
