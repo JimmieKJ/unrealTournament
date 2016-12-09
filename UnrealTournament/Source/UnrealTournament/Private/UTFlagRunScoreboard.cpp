@@ -300,7 +300,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				UTHUDOwner->UTPlayerOwner->ClientPlaySound(StarPoundSound);
 			}
 			float StarXPos = ScoreX;
-			float StarYPos = YPos;
+			float StarYPos = YPos - 0.22f*YL*RenderScale;
 			if (CurrentTime >= WooshStart + i*WooshInterval)
 			{
 				if (CurrentTime - DeltaTime < WooshStart + i*WooshInterval)
@@ -322,7 +322,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				float WooshPct = FMath::Clamp((CurrentTime - (WooshStart + i*WooshInterval)) / WooshTime, 0.f, 1.f);
 				float XOffsetDest = (WinningTeam->TeamIndex == 0) ? 0.37f * Canvas->ClipX : 0.60f * Canvas->ClipX;
 				StarXPos = StarXPos + FMath::Min(1.1f*WooshPct, 1.f)*(XOffsetDest - StarXPos);
-				StarYPos = YPos * (1.f - WooshPct);
+				StarYPos *= (1.f - WooshPct);
 			}
 			if (StarYPos > 0.05f*Canvas->ClipY)
 			{
