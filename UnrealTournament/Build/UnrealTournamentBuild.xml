@@ -163,7 +163,7 @@
 			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="$(LabelName)" McpConfig="$(McpConfig)"/>
 		</Node>
 		<Node Name="Publish WindowsNoEditor" Requires="Stage WindowsNoEditor">
-			<Copy Files="..." From="$(LocalStagingDir)/WindowsNoEditor" To="$(BuildDir)/WindowsNoEditor"/>
+			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
 			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 		</Node>
@@ -177,7 +177,7 @@
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
 		<Node Name="Publish WindowsServer Win64" Requires="Stage Windows Server Win64">
-			<Copy Files="..." From="$(LocalStagingDir)/WindowsServer" To="$(BuildDir)/WindowsServer"/>
+			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsServer" ToDir="$(BuildDir)/WindowsServer"/>
 			<SymStore Files="#Compile UT Server Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournamentServer" If="$(EnableSymStore)"/>
 		</Node>
 	</Agent>
@@ -334,7 +334,7 @@
 			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Mac" Label="$(LabelName)" McpConfig="$(McpConfig)"/>
 		</Node>
 		<Node Name="Publish Mac" Requires="Stage Mac">
-			<Copy Files="..." From="$(LocalStagingDir)/MacNoEditor" To="$(BuildDir)/MacNoEditor"/>
+			<Copy Files="..." FromDir="$(LocalStagingDir)/MacNoEditor" ToDir="$(BuildDir)/MacNoEditor"/>
 		</Node>
 	</Agent>
 
@@ -475,11 +475,8 @@
 			<Property Name="ServerConfig" Value="None" If="!$(WithLinuxServer)"/>
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
-		<Node Name="Publish LinuxNoEditor" Requires="Stage Linux">
-			<Copy Files="..." From="$(LocalStagingDir)/LinuxNoEditor" To="$(BuildDir)/LinuxNoEditor"/>
-		</Node>
-		<Node Name="Publish LinuxServer" Requires="Stage Linux">
-			<Copy Files="..." From="$(LocalStagingDir)/LinuxServer" To="$(BuildDir)/LinuxServer"/>
+		<Node Name="Publish LinuxServer" Requires="Stage LinuxServer">
+			<Copy Files="..." FromDir="$(LocalStagingDir)/LinuxServer" ToDir="$(BuildDir)/LinuxServer"/>
 		</Node>
 	</Agent>
 
