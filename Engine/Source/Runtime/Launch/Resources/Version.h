@@ -68,7 +68,7 @@
 // development branches, licensee versions, or whether the engine version has been locked to maintain compatibility with a previous engine release. Prefer
 // BUILD_VERSION where a unique, product-specific identifier is required, or FEngineVersion::CompatibleWith() where relational comparisons between two 
 // versions is required.
-#define BUILT_FROM_CHANGELIST 0
+#define BUILT_FROM_CHANGELIST 3228288
 
 // Whether this build is "promoted"; that is, compiled by a build machine (rather than locally) and distributed in binary form. This disables certain features in
 // the engine relating to building locally (because they require intermediate files to be available), such as the hot-reload functionality in the editor.
@@ -103,7 +103,7 @@
 
 // The branch that this engine is being built from. When set by UAT, this has the form of a Perforce depot path with forward slashes escaped by plus characters 
 // (eg. //UE4/Main -> ++UE4+Main)
-#define BRANCH_NAME "UE4"
+#define BRANCH_NAME "++UT+Main"
 
 // Macros for encoding strings
 #define VERSION_TEXT_2(x) L ## x
