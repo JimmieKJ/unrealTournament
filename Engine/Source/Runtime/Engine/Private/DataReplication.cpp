@@ -1019,7 +1019,7 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, F
 	const bool bIsReplay = RepFlags.bReplay ? true : false;
 
 	ConditionMap[COND_None] = true;
-	ConditionMap[COND_InitialOnly] = bIsInitial;
+	ConditionMap[COND_InitialOnly] = bIsInitial || (Cast<AActor>(Object) && (((AActor*)(Object))->Role != ROLE_Authority));
 	ConditionMap[COND_OwnerOnly] = bIsOwner;
 	ConditionMap[COND_SkipOwner] = !bIsOwner;
 	ConditionMap[COND_SimulatedOnly] = bIsSimulated;
