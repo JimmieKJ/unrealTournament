@@ -562,20 +562,16 @@ void AUTCharacter::Restart()
 void AUTCharacter::DeactivateSpawnProtection()
 {
 	bSpawnProtectionEligible = false;
-	// TODO: visual effect
 }
 
 bool AUTCharacter::IsSpawnProtected()
 {
-	if (!bSpawnProtectionEligible)
-	{
-		return false;
-	}
-	else
+	if (bSpawnProtectionEligible)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		return (GS != NULL && GS->SpawnProtectionTime > 0.0f && GetWorld()->TimeSeconds - CreationTime < GS->SpawnProtectionTime);
 	}
+	return false;
 }
 
 void AUTCharacter::SetHeadScale(float NewHeadScale)
