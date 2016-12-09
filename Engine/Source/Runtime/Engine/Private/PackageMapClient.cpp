@@ -2146,6 +2146,9 @@ void FNetGUIDCache::AsyncPackageCallback(const FName& PackageName, UPackage * Pa
 
 	FNetworkGUID NetGUID = PendingAsyncPackages.FindRef(PackageName);
 
+	//plk @debug
+	UE_LOG(LogNetPackageMap, Warning, TEXT("AsyncPackageCallback: Package loaded. Path: %s, NetGUID: %s"), *PackageName.ToString(), *NetGUID.ToString());
+
 	PendingAsyncPackages.Remove(PackageName);
 
 	if ( !NetGUID.IsValid() )
@@ -2332,12 +2335,16 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 					CacheObjectPtr->bIsPending = true;
 					LoadPackageAsync(CacheObjectPtr->PathName.ToString(), FLoadPackageAsyncDelegate::CreateRaw(this, &FNetGUIDCache::AsyncPackageCallback));
 
-					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+					UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: Async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
 				}
 				else
 				{
-					check(PendingAsyncPackages[CacheObjectPtr->PathName] == NetGUID);
 					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+					if (PendingAsyncPackages[CacheObjectPtr->PathName] != NetGUID)
+					{
+						UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: NetGUID changed. Path: %s, NetGUID Original: %s, NetGUID New: %s"), *CacheObjectPtr->PathName.ToString(), *PendingAsyncPackages[CacheObjectPtr->PathName].ToString(), *NetGUID.ToString());
+					}
+					check(PendingAsyncPackages[CacheObjectPtr->PathName] == NetGUID);
 				}
 
 				// There is nothing else to do except wait on the delegate to tell us this package is done loading
