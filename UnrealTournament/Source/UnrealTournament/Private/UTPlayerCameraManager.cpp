@@ -332,16 +332,15 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
 			}
 			if (UTPC->IsInState(NAME_Inactive)
-				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f) && ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.1f) || UTPC->LineOfSightTo(UTPC->DeathCamFocus)))
+				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f))
 			{
-
 				// custom camera control for dead players
 				// still for a short while, then look at killer
 				FRotator ViewRotation = UTPC->GetControlRotation();
 				ViewRotation.Yaw = FMath::UnwindDegrees(ViewRotation.Yaw);
 				ViewRotation.Pitch = FMath::UnwindDegrees(ViewRotation.Pitch);
 				ViewRotation.Roll = 0.f;
-				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() + FVector(0.f,0.f, 83.f) - OutVT.POV.Location).Rotation();
+				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() + FVector(0.f, 0.f, 83.f) - OutVT.POV.Location).Rotation();
 				DesiredViewRotation.Yaw = FMath::UnwindDegrees(DesiredViewRotation.Yaw);
 				DesiredViewRotation.Pitch = bZoomIn ? FMath::UnwindDegrees(DesiredViewRotation.Pitch) : FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch), -8.f, -5.f);
 				float DeltaYaw = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Yaw), FMath::DegreesToRadians(DesiredViewRotation.Yaw)));
@@ -350,6 +349,11 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				ViewRotation.Pitch += 15.f*DeltaTime*DeltaPitch;
 				UTPC->SetControlRotation(ViewRotation);
 				Rotator = ViewRotation;
+
+				if ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() > 0.25f) && !UTPC->LineOfSightTo(UTPC->DeathCamFocus))
+				{
+					UTPC->DeathCamFocus = nullptr;
+				}
 			}
 			else
 			{
