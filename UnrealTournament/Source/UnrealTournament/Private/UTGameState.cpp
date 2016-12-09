@@ -2313,14 +2313,6 @@ void AUTGameState::PrepareForIntermission()
 				{
 					Audio->Stop();
 				}
-/*				else
-				{
-					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
-					if (PSC != NULL && IsLoopingParticleSystem(PSC->Template))
-					{
-						PSC->DeactivateSystem();
-					}
-				}*/
 			}
 		}
 		else
@@ -2333,18 +2325,14 @@ void AUTGameState::PrepareForIntermission()
 		}
 	}
 
-	// also freeze projectiles left over
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AUTProjectile* TestProj = Cast<AUTProjectile>(*It);
 		if (TestProj && !TestProj->IsPendingKill())
 		{
-			TestProj->Destroy();
-			//TestProj->PrepareForIntermission();
+			TestProj->PrepareForIntermission();
 		}
 	}
-
-	//freeze effects
 
 	// inform actors of intermission start
 	for (FActorIterator It(GetWorld()); It; ++It)

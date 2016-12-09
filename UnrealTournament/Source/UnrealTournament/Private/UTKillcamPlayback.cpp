@@ -491,7 +491,13 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 		return;
 	}
 
-	// Clean up actors that have looping sounds
+	AUTGameState* GS = KillcamWorld->GetGameState<AUTGameState>();
+	if (GS)
+	{
+		GS->PrepareForIntermission();
+	}
+
+	// Destroy any client side actors
 	for (TActorIterator<AUTProjectile> It(KillcamWorld); It; ++It)
 	{
 		It->Destroy();
