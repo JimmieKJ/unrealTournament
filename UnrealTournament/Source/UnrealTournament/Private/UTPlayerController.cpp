@@ -5349,6 +5349,15 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 			UTGS->LineUpHelper->bIsActive = bNewIsActive;
 			UTGS->LineUpHelper->LastActiveType = LastType;
 
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AActor* TestActor = *It;
+				if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+				{
+					TestActor->Destroy();
+				}
+			}
+
 			if (bNewIsActive)
 			{
 				ClientSetLineUpCamera(GetWorld(), LastType);

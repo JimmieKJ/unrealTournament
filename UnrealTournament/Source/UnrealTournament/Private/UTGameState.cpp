@@ -2293,7 +2293,6 @@ bool AUTGameState::IsMapVoteListReplicationCompleted()
 	}
 
 	return bMapVoteListReplicationComplete;
-
 }
 
 void AUTGameState::PrepareForIntermission()
@@ -2337,7 +2336,8 @@ void AUTGameState::PrepareForIntermission()
 		AUTProjectile* TestProj = Cast<AUTProjectile>(*It);
 		if (TestProj && !TestProj->IsPendingKill())
 		{
-			TestProj->PrepareForIntermission();
+			TestProj->Destroy();
+			//TestProj->PrepareForIntermission();
 		}
 	}
 

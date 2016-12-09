@@ -496,8 +496,6 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 	{
 		It->Destroy();
 	}
-
-	// Clean up actors that have looping sounds
 	for (TActorIterator<AUTRemoteRedeemer> It(KillcamWorld); It; ++It)
 	{
 		It->Destroy();
