@@ -390,6 +390,25 @@ FString FUTAnalytics::GetMapName(AUTGameMode* UTGM)
 	return MapName;
 }
 
+FString FUTAnalytics::GetGameModeName(AUTPlayerController* UTPC)
+{
+	FString GameModeName;
+	if (UTPC && UTPC->GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(UTPC->GetWorld()->GetGameState());
+		if (UTGS)
+		{
+			const AUTGameMode* UTGM = UTGS->GetDefaultGameMode<AUTGameMode>();
+			if (UTGM)
+			{
+				GameModeName = UTGM->DisplayName.ToString();
+			}
+		}
+	}
+
+	return GameModeName;
+}
+
 /*
 * @EventName UTFPSCharts
 *
@@ -653,6 +672,7 @@ void FUTAnalytics::FireEvent_UTServerWeaponKills(AUTGameMode* UTGM, TMap<TSubcla
 * @EventParam Platform string The platform the client is on.
 * @EventParam Location string The context location of the player
 * @EventParam SocialPartyCount int32 The number of people in a players social party (counts the player as a party member)
+* @EventParam GameModeName string The Name of the game mode the player is currently in.
 * @EventParam RegionId the region reported by the user (automatic from ping, or self selected in settings)
 *
 * @Comments
@@ -668,7 +688,8 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Platform), GetPlatform()));
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Location), PlayerContextLocation));
 			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::SocialPartyCount), NumSocialPartyMembers));
-			
+			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::GameModeName), GetGameModeName(UTPC)));
+
 			if (FQosInterface::Get()->GetRegionId().IsEmpty() || (FQosInterface::Get()->GetRegionId() == "None"))
 			{
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTPC->GetLocalPlayer());

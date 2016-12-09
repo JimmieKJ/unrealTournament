@@ -76,6 +76,7 @@ public:
 	static int32 GetMatchTime(AUTGameMode* UTGM);
 	static FString GetMapName(AUTPlayerController* UTPC);
 	static FString GetMapName(AUTGameMode* UTGM);
+	static FString GetGameModeName(AUTPlayerController* UTPC);
 
 private:
 	static FString GetBuildType();

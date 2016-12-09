@@ -413,7 +413,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	bool bHasAnalyticsLoggedGameStart = EvalBoolOptions(UGameplayStatics::ParseOption(Options, FUTAnalytics::AnalyticsLoggedGameOption), false);
 	if (!bHasAnalyticsLoggedGameStart && FUTAnalytics::IsAvailable())
 	{
-		FUTAnalytics::FireEvent_EnterMatch(FString("Console"));
+		FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("Console - %s"), *DisplayName.ToString()));
 	}
 }
 
