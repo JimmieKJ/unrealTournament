@@ -175,8 +175,8 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 		// The hardware is slow, we don't need a long test and risk driver TDR (driver recovery).
 		// We have seen this problem on very low end GPUs.
 		{
-			const float fFirstWorkScale = 0.01f;
-			const float fSecondWorkScale = 0.1f;
+			const float fFirstWorkScale = 0.2f;
+			const float fSecondWorkScale = 0.6f;
 
 			RendererModule.GPUBenchmark(InOut, fFirstWorkScale);
 			GPUTime = InOut.ComputeTotalGPUTime();
@@ -186,7 +186,7 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 				PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be very inaccurate)"));
 			}
 
-			if(GPUTime < 0.1f)
+			if(GPUTime < fSecondWorkScale)
 			{
 				RendererModule.GPUBenchmark(InOut, fSecondWorkScale);
 				GPUTime = InOut.ComputeTotalGPUTime();
@@ -197,7 +197,7 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 					PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be inaccurate)"));
 				}
 
-				if(GPUTime < 0.1f)
+				if(GPUTime < fSecondWorkScale)
 				{
 					RendererModule.GPUBenchmark(InOut, WorkScale);
 					GPUTime = InOut.ComputeTotalGPUTime();
