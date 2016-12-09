@@ -5,6 +5,7 @@
 #include "Serialization/CustomVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "UObject/ReleaseObjectVersion.h"
+#include "EngineBuildSettings.h"
 
 /** Version numbers for networking - DEPRECATED!!!! Use FNetworkVersion::GetNetworkCompatibleChangelist instead!!! */
 int32 GEngineNetVersion = ENGINE_NET_VERSION;
