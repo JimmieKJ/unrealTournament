@@ -114,7 +114,9 @@ void AUTFlagRunHUD::DrawHUD()
 
 		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 
-		float BasePipSize = 72 * GetHUDWidgetScaleOverride() * RenderScale;
+		float TeammateScale = VerifyProfileSettings() ? CachedProfileSettings->HUDTeammateScaleOverride : UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->HUDTeammateScaleOverride;
+
+		float BasePipSize = (32 + (64 * TeammateScale)) * GetHUDWidgetScaleOverride() * RenderScale;  // 96 - 32px in size
 		float XAdjust = BasePipSize * 1.1;
 		float XOffsetRed = 0.4f * Canvas->ClipX - XAdjust - BasePipSize;
 		float XOffsetBlue = 0.6f * Canvas->ClipX + XAdjust;
@@ -133,6 +135,7 @@ void AUTFlagRunHUD::DrawHUD()
 			}
 		}
 		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder > B.SelectionOrder; });
+
 		for (AUTPlayerState* UTPS : LivePlayers)
 		{
 			if (!UTPS->bOutOfLives)

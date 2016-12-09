@@ -41,6 +41,7 @@ const FName NAME_bDrawChatKillMsg						= FName(TEXT("bDrawChatKillMsg"));
 const FName NAME_bDrawCenteredKillMsg					= FName(TEXT("bDrawCenteredKillMsg"));
 const FName NAME_bDrawHUDKillIconMsg					= FName(TEXT("bDrawHUDKillIconMsg"));
 const FName NAME_bPlayKillSoundMsg						= FName(TEXT("bPlayKillSoundMsg"));
+const FName NAME_HUDTeammateScaleOverride				= FName(TEXT("HUDTeammateScaleOverride"));
 
 void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 {
@@ -428,7 +429,9 @@ TSharedRef<SWidget> SUTHUDSettingsDialog::BuildGeneralTab()
 		+AddBoolOption(NAME_bQuickInfoHidden, NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHidden", "Show Powerups/Flag on MiniHUD"), NSLOCTEXT("SUTHUDSettingsDialog", "bQuickInfoHiddenTT", "Check this box if you wish to show power up and flags on the mini-HUD."), !ProfileSettings->bQuickInfoHidden)
 		+AddBoolOption(NAME_bHideDamageIndicators, NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicators", "Show Damage Dealt Indicator"), NSLOCTEXT("SUTHUDSettingsDialog", "bHideDamageIndicatorsTT", "Enable this to show the damage delt indicators that appear around the crosshair."), !ProfileSettings->bHideDamageIndicators)
 		+AddBoolOption(NAME_bHealthArcShown, NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShown", "Show Health/Armor Arcs"), NSLOCTEXT("SUTHUDSettingsDialog", "bHealthArcShownTT", "Enable this to show the health and armor arcs around the crosshair."), ProfileSettings->bHealthArcShown)
-		+AddIntOption(NAME_HealthArcRadius, NSLOCTEXT("HUDSETTINGS", "HealthArcRadius", "Arc Radius:"), NSLOCTEXT("SUTHUDSettingsDialog", "HealthArcRadiusTT", "Set radius of Health/Armor arcs."), NSLOCTEXT("SUTHUDSettingsDialog", "Units", ""), ProfileSettings->HealthArcRadius, 15, 100);
+		+AddIntOption(NAME_HealthArcRadius, NSLOCTEXT("HUDSETTINGS", "HealthArcRadius", "Arc Radius:"), NSLOCTEXT("SUTHUDSettingsDialog", "HealthArcRadiusTT", "Set radius of Health/Armor arcs."), NSLOCTEXT("SUTHUDSettingsDialog", "Units", ""), ProfileSettings->HealthArcRadius, 15, 100)
+		+AddIntOption(NAME_HUDTeammateScaleOverride, NSLOCTEXT("HUDSETTINGS","TeammateScaleLabel","Player Portrait Scale:"),NSLOCTEXT("SUTHUDSettingsDialog", "HUDOTeammateScaleTT", "Changes the scale of player portraits on the hud."), NSLOCTEXT("SUTHUDSettingsDialog", "Percent", "%"), int32(ProfileSettings->HUDTeammateScaleOverride * 100.0f), 0, 100);
+
 }
 
 TSharedRef<SWidget> SUTHUDSettingsDialog::BuildWeaponBarTab()
@@ -652,6 +655,7 @@ void SUTHUDSettingsDialog::ApplySettings()
 		ProfileSettings->bDrawCenteredKillMsg = SettingsInfos[NAME_bDrawCenteredKillMsg]->GetActualValue_bool();
 		ProfileSettings->bDrawHUDKillIconMsg = SettingsInfos[NAME_bDrawHUDKillIconMsg]->GetActualValue_bool();
 		ProfileSettings->bPlayKillSoundMsg = SettingsInfos[NAME_bPlayKillSoundMsg]->GetActualValue_bool();
+		ProfileSettings->HUDTeammateScaleOverride = float(SettingsInfos[NAME_HUDTeammateScaleOverride]->GetActualValue_int32()) / 100.0f;
 
 		ProfileSettings->QuickStatsAngle = SettingsInfos[NAME_QuickStatsAngle]->GetActualValue_float();
 		ProfileSettings->QuickStatsDistance = SettingsInfos[NAME_QuickStatsDistance]->GetActualValue_float();

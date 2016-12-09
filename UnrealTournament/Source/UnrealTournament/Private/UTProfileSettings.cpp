@@ -14,6 +14,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 : Super(ObjectInitializer)
 {
 	bNeedProfileWriteOnLevelChange = false;
+	HUDTeammateScaleOverride = 0.39f;
 }
 
 void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
@@ -81,6 +82,8 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		bDrawCenteredKillMsg = true;
 		bDrawHUDKillIconMsg = true;
 		bPlayKillSoundMsg = true;
+
+		HUDTeammateScaleOverride=0.39f;
 	}
 
 	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Input)

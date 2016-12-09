@@ -324,6 +324,10 @@ public:
 	uint32 bDrawHUDKillIconMsg : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	float HUDTeammateScaleOverride;
+	
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	uint32 bPlayKillSoundMsg : 1;
 
 	// ======================== Input Settings
