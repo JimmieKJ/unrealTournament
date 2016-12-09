@@ -373,8 +373,8 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				}
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
-			FVector LineStartPoint(0.56f*Canvas->ClipX, YPos, 0.f);
-			FLinearColor LineColor = WinningTeam->TeamColor;
+			FVector LineStartPoint(0.56f*Canvas->ClipX, YPos + 0.2f*YL*RenderScale, 0.f);
+			FLinearColor LineColor = EmphasisColor;
 			LineColor.A = 0.2f;
 			FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
 			FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
