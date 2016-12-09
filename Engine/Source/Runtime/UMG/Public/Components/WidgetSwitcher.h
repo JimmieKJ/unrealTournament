@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "UObject/ObjectMacros.h"
+#include "Widgets/SWidget.h"
+#include "Components/PanelWidget.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 #include "WidgetSwitcher.generated.h"
 
 /**
