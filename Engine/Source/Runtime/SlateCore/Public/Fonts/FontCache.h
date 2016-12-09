@@ -864,6 +864,11 @@ private:
 	 */
 	void FlushCache();
 
+	/**
+	 * Clears out any pending UFont objects that were requested to be flushed
+	 */
+	void FlushFontObjects();
+
 	/** Called after the active culture has changed */
 	void HandleCultureChanged();
 
@@ -920,8 +925,9 @@ private:
 	/** The frame counter the last time the font cache was asked to be flushed */
 	uint64 FrameCounterLastFlushRequest;
 
-//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
-	/** Critical section for thread synchronization for the font cache */
-	mutable FCriticalSection CacheCriticalSection;
-//@HSL_END
+	/** Critical section preventing concurrent access to FontObjectsToFlush */
+	mutable FCriticalSection FontObjectsToFlushCS;
+
+	/** Array of UFont objects that the font cache has been requested to flush. Since GC can happen while the loading screen is running, the request may be deferred until the next call to ConditionalFlushCache */
+	TArray<const UObject*> FontObjectsToFlush;
 };

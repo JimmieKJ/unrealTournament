@@ -935,9 +935,6 @@ FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontI
 	// Create a key for looking up each character
 	const FSlateFontKey FontKey( InFontInfo, InOutlineSettings, FontScale );
 
-	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
-	FScopeLock ScopeLock(&CacheCriticalSection);
-	//@HSL_END
 	TSharedRef< class FCharacterList >* CachedCharacterList = FontToCharacterListCache.Find( FontKey );
 
 	if( CachedCharacterList )
@@ -1056,27 +1053,11 @@ void FSlateFontCache::RequestFlushCache()
 
 void FSlateFontCache::FlushObject( const UObject* const InObject )
 {
-	if( !InObject )
+	if (InObject)
 	{
-		return;
-	}
-
-	bool bHasRemovedEntries = false;
-	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
-	FScopeLock ScopeLock(&CacheCriticalSection);
-	//@HSL_END
-	for( auto It = FontToCharacterListCache.CreateIterator(); It; ++It )
-	{
-		if( It.Key().GetFontInfo().FontObject == InObject)
-		{
-			bHasRemovedEntries = true;
-			It.RemoveCurrent();
-		}
-	}
-
-	if( bHasRemovedEntries )
-	{
-		FlushData();
+		// Add it to the list of pending objects to flush
+		FScopeLock ScopeLock(&FontObjectsToFlushCS);
+		FontObjectsToFlush.AddUnique(InObject);
 	}
 }
 
@@ -1088,11 +1069,17 @@ void FSlateFontCache::FlushCompositeFont(const FCompositeFont& InCompositeFont)
 bool FSlateFontCache::ConditionalFlushCache()
 {
 	bool bFlushed = false;
-	if( bFlushRequested )
+	if (bFlushRequested)
 	{
 		bFlushRequested = false;
 		FlushCache();
 		bFlushed = !bFlushRequested;
+	}
+
+	if (!bFlushed && DoesThreadOwnSlateRendering())
+	{
+		// Only bother calling this if we didn't do a full flush
+		FlushFontObjects();
 	}
 
 	return bFlushed;
@@ -1136,6 +1123,11 @@ void FSlateFontCache::FlushCache()
 		NonAtlasedTextures.Empty();
 		AllFontTextures.Empty();
 
+		{
+			FScopeLock ScopeLock(&FontObjectsToFlushCS);
+			FontObjectsToFlush.Empty();
+		}
+
 		UE_LOG(LogSlate, Verbose, TEXT("Slate font cache was flushed"));
 	}
 	else
@@ -1156,6 +1148,35 @@ void FSlateFontCache::FlushData()
 
 	FontToCharacterListCache.Empty();
 	ShapedGlyphToAtlasData.Empty();
+}
+
+void FSlateFontCache::FlushFontObjects()
+{
+	check(DoesThreadOwnSlateRendering());
+
+	bool bHasRemovedEntries = false;
+	{
+		FScopeLock ScopeLock(&FontObjectsToFlushCS);
+
+		if (FontObjectsToFlush.Num() > 0)
+		{
+			for (auto It = FontToCharacterListCache.CreateIterator(); It; ++It)
+			{
+				if (FontObjectsToFlush.Contains(It.Key().GetFontInfo().FontObject))
+				{
+					bHasRemovedEntries = true;
+					It.RemoveCurrent();
+				}
+			}
+
+			FontObjectsToFlush.Empty();
+		}
+	}
+
+	if (bHasRemovedEntries)
+	{
+		FlushData();
+	}
 }
 
 void FSlateFontCache::HandleCultureChanged()
