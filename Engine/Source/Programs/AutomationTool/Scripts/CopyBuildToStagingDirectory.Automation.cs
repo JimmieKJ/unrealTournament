@@ -1042,7 +1042,7 @@ public partial class Project : CommandUtils
 			}
 		}
 
-
+        /*
         if (Params.HasCreateReleaseVersion)
         {
             // copy the created pak to the release version directory we might need this later if we want to generate patches
@@ -1052,7 +1052,7 @@ public partial class Project : CommandUtils
 			InternalUtils.SafeCreateDirectory(Path.GetDirectoryName(ReleaseVersionPath));
 			InternalUtils.SafeCopyFile(OutputLocation, ReleaseVersionPath);
         }
-
+        */
 		if (Params.CreateChunkInstall)
 		{
             var RegEx = new Regex("pakchunk(\\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled);
