@@ -217,7 +217,10 @@ void FLinkerManager::DeleteLinkers()
 	ThreadContext.IsDeletingLinkers = true;
 	for (FLinkerLoad* Linker : CleanupArray)
 	{
-		delete Linker;
+		if (Linker->AsyncRoot == nullptr || Linker->AsyncRoot->HasFinishedLoading() || Linker->AsyncRoot->HasLoadFailed())
+		{
+			delete Linker;
+		}
 	}
 	ThreadContext.IsDeletingLinkers = false;
 }
