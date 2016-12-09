@@ -5499,3 +5499,16 @@ void AUTPlayerController::ClientAnnounceRoundScore_Implementation(AUTTeamInfo* W
 		Scoreboard->AnnounceRoundScore(WinningTeam, ScoringPlayer, RoundBonus, Reason);
 	}
 }
+
+
+void AUTPlayerController::PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
+{
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState != nullptr)
+	{
+		GameState->VoteTimer = 0;
+		GameState->SetMatchState(MatchState::WaitingTravel);
+	}
+	
+	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
+}

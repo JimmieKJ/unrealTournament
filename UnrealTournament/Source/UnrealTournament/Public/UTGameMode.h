@@ -22,6 +22,8 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
 	extern UNREALTOURNAMENT_API const FName MatchExitingIntermission;		// Exiting Halftime
 	extern UNREALTOURNAMENT_API const FName MatchRankedAbandon;				// Exiting Halftime
+	extern UNREALTOURNAMENT_API const FName WaitingTravel;					// The client is awaying travel to the next map
+
 }
 
 USTRUCT()

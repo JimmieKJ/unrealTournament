@@ -689,6 +689,8 @@ public:
 	// Returns true if the replication of the MapVote list is completed
 	bool IsMapVoteListReplicationCompleted();
 
+	virtual bool HasMatchEnded() const;
+
 };
 
 

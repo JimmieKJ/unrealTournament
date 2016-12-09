@@ -1189,6 +1189,10 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 		{
 			return MapVoteStatus;
 		}
+		else if (GetMatchState() == MatchState::WaitingTravel)
+		{
+			return NSLOCTEXT("UTGameState","WaitingTravel","Waiting For Server"); 
+		}
 		else if ((PlayersNeeded > 0) && (GetNetMode() != NM_Standalone))
 		{
 			FFormatNamedArguments Args;
@@ -2352,3 +2356,14 @@ void AUTGameState::PrepareForIntermission()
 	}
 
 }
+
+bool AUTGameState::HasMatchEnded() const
+{
+	if (GetMatchState() == MatchState::MapVoteHappening || GetMatchState() == MatchState::WaitingTravel)
+	{
+		return true;
+	}
+
+	return Super::HasMatchEnded();
+}
+

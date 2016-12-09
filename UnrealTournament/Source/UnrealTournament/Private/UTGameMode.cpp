@@ -72,6 +72,8 @@ namespace MatchState
 	const FName MatchIntermission = FName(TEXT("MatchIntermission"));
 	const FName MatchExitingIntermission = FName(TEXT("MatchExitingIntermission"));
 	const FName MatchRankedAbandon = FName(TEXT("MatchRankedAbandon"));
+	const FName WaitingTravel = FName(TEXT("WaitingTravel"));
+
 }
 
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)

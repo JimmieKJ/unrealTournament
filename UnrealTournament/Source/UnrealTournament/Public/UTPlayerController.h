@@ -1293,11 +1293,16 @@ public:
 	// Will return true if this player can perform a rally
 	bool CanPerformRally() const;
 
+	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel) override;
+
 protected:
 	void InitializeHeartbeatManager();
 
 	UPROPERTY()
 	class UUTHeartbeatManager* HeartbeatManager;
+
+
+
 };
 
 
