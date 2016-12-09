@@ -16,7 +16,7 @@
 #include "UTShowdownGameMessage.h"
 #include "UTDemoRecSpectator.h"
 #include "UTAnnouncer.h"
-#include "UTLineupHelper.h"
+#include "UTLineUpHelper.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
