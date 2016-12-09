@@ -245,7 +245,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	Canvas->StrLen(InFont, ScorePostfix.ToString(), PostXL, YL);
 
 	float ScoreWidth = RenderScale * FMath::Max(6.f*StarXL, 1.2f*(PostXL+EmphasisXL));
-	float ScoreHeight = ScoringPlayer ? StarYL + 3.f*YL : StarYL + YL;
+	float ScoreHeight = ScoringPlayer ? StarYL + 1.7f*YL : StarYL + YL;
 	float XOffset = 0.5f*(Canvas->ClipX - ScoreWidth);
 	DrawFramedBackground(XOffset, YPos, ScoreWidth, RenderScale * ScoreHeight);
 
@@ -349,7 +349,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	}
 
 	// Draw bonus time
-	if (WinningTeam && (CurrentTime >= PoundStart + (NumStars + 1)*PoundInterval) && (PendingTiebreak != 0))
+	if (WinningTeam && (CurrentTime >= WooshStart + NumStars*WooshInterval) && (PendingTiebreak != 0))
 	{
 		float BonusXL, BonusYL;
 		UFont* BonusFont = UTHUDOwner->LargeFont;
@@ -357,7 +357,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		Args.Add("Bonus", FText::AsNumber(FMath::Abs(PendingTiebreak)));
 		FText BonusText = FText::Format(NSLOCTEXT("FlagRun", "BonusTime", "Bonus Time +{Bonus}"), Args);
 		Canvas->StrLen(BonusFont, BonusText.ToString(), BonusXL, BonusYL);
-		if (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshTime)
+		if (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshInterval)
 		{
 			float Interval = FMath::Max(float(FMath::Abs(PendingTiebreak)), 20.f);
 			if (int32(Interval*(CurrentTime - DeltaTime)) != int32(Interval*CurrentTime))
@@ -373,7 +373,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				}
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
-			FVector LineStartPoint(0.56f*Canvas->ClipX, YPos + BonusYL, 0.f);
+			FVector LineStartPoint(0.56f*Canvas->ClipX, YPos, 0.f);
 			FLinearColor LineColor = WinningTeam->TeamColor;
 			LineColor.A = 0.2f;
 			FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
@@ -382,13 +382,13 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		}
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		TextRenderInfo.bEnableShadow = true;
-		Canvas->DrawText(BonusFont, BonusText, 0.5f*(Canvas->ClipX - RenderScale*BonusXL), YPos + StarYL*RenderScale, RenderScale, RenderScale, TextRenderInfo);
+		Canvas->DrawText(BonusFont, BonusText, 0.5f*(Canvas->ClipX - RenderScale*BonusXL), YPos, RenderScale, RenderScale, TextRenderInfo);
 	}
 
 	// Draw scoring player string
 	if (ScoringPlayer)
 	{
-		YPos = YPos + (YL + StarYL)*RenderScale;
+		YPos = YPos + StarYL*RenderScale;
 		float DeliveredXL;
 		Canvas->StrLen(UTHUDOwner->SmallFont, DeliveredPrefix.ToString(), DeliveredXL, YL);
 		EmphasisText = FText::FromString(ScoringPlayer->PlayerName);
