@@ -222,8 +222,6 @@ protected:
 	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor);
 	virtual void DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width);
 
-	virtual void DrawServerPanel(float RenderDelta, float YOffset);
-
 	/** Color to display ready text. */
 	FLinearColor ReadyColor;
 

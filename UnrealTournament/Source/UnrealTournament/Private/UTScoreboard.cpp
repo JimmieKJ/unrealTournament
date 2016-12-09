@@ -118,7 +118,6 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	{
 		DrawCurrentLifeStats(RenderDelta, YOffset);
 	}
-	DrawServerPanel(RenderDelta, FooterPosY);
 
 	DrawMinimap(RenderDelta);
 	if (bHaveWarmup)
@@ -563,33 +562,6 @@ void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, 
 {
 	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	DrawText(FText::AsNumber(PlayerState->Deaths), XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-}
-
-void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
-{
-	if (UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
-	{
-		FText SpectatorMessage, ShortMessage;
-		if (UTHUDOwner->SpectatorMessageWidget)
-		{
-			SpectatorMessage = UTHUDOwner->SpectatorMessageWidget->GetSpectatorMessageText(ShortMessage);
-		}
-		bool bShortMessage = !ShortMessage.IsEmpty();
-		if (!SpectatorMessage.IsEmpty() && !bShortMessage)
-		{
-			if ((UTGameState->PlayerArray.Num() < 26) && !ShouldDrawScoringStats())
-			{
-				// Only draw if there is room above spectator panel
-				UTHUDOwner->SpectatorMessageWidget->PreDraw(RenderDelta, UTHUDOwner, Canvas, CanvasCenter);
-				UTHUDOwner->SpectatorMessageWidget->DrawSimpleMessage(SpectatorMessage, RenderDelta, ShortMessage);
-			}
-			else
-			{
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, ScaledEdgeSize, YOffset, Canvas->ClipX - 2.f*ScaledEdgeSize, 38.f*RenderScale, 4, 132, 30, 38, 1.0);
-				DrawText(SpectatorMessage, ScaledEdgeSize + 10.f*RenderScale, YOffset + 13.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-			}
-		}
-	}
 }
 
 int32 UUTScoreboard::SelectionHitTest(FVector2D InPosition)

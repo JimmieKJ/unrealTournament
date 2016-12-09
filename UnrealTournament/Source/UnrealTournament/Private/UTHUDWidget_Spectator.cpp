@@ -10,8 +10,8 @@ UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& O
 {
 	DesignedResolution = 1080;
 	Position=FVector2D(0,0);
-	Size=FVector2D(1920.0f,108.0f);
-	ScreenPosition=FVector2D(0.0f, 0.9f);
+	Size=FVector2D(1920.0f,54.0f);
+	ScreenPosition=FVector2D(0.0f, 0.94f);
 	Origin=FVector2D(0.0f,0.0f);
 }
 
@@ -22,7 +22,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 		return true;
 	}
 
-	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
+	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState && (UTGameState->GetMatchState() != MatchState::PlayerIntro))
 	{
 		AUTPlayerState* PS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
 		if (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
@@ -41,16 +41,16 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		return;
 	}
 	bool bViewingMessage = !ViewingMessage.IsEmpty();
-	float Scaling = bViewingMessage ? FMath::Max(1.f, 3.f - 6.f*(GetWorld()->GetTimeSeconds() - ViewCharChangeTime)) : 1.f;
+	float Scaling = bViewingMessage ? FMath::Max(1.f, 3.f - 6.f*(GetWorld()->GetTimeSeconds() - ViewCharChangeTime)) : 0.5f;
 	float ScreenWidth = (Canvas->ClipX / RenderScale);
 	float BackgroundWidth = ScreenWidth;
-	float TextPosition = 360.f;
+	float TextPosition = 200.f;
 	float MessageOffset = 0.f;
 	float YOffset = 0.f;
 	if (bViewingMessage && UTHUDOwner->LargeFont && UTHUDOwner->SmallFont)
 	{
 		float XL, YL;
-		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
+		Canvas->StrLen(UTHUDOwner->MediumFont, SimpleMessage.ToString(), BackgroundWidth, YL);
 		Canvas->StrLen(UTHUDOwner->SmallFont, ViewingMessage.ToString(), XL, YL);
 		BackgroundWidth = FMath::Max(XL, BackgroundWidth);
 		BackgroundWidth = Scaling* (FMath::Max(BackgroundWidth, 128.f) + 64.f);
@@ -71,12 +71,12 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		bMaintainAspectRatio = true;
 
 		// Draw the Logo
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, 20, 27.f, 150.5f, 49.f, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
 		// Draw the Spacer Bar
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, 190.5f, 27.f, 4.f, 49.5f, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
-	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(SimpleMessage, TextPosition, YOffset + 20.f, UTHUDOwner->MediumFont, 1.f, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_Spectator::DrawSpawnPacks(float DeltaTime)
