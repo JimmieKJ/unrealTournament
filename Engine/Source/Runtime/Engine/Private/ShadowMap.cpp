@@ -588,7 +588,7 @@ void FShadowMap2D::Serialize(FArchive& Ar)
 		Ar << bChannelValid[Channel];
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
+	if (Ar.UE4Ver() >= 452) //VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
 	{
 		Ar << InvUniformPenumbraSize;
 	}
