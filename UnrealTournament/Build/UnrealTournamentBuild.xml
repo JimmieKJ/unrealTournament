@@ -475,10 +475,7 @@
 			<Property Name="ServerConfig" Value="None" If="!$(WithLinuxServer)"/>
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
-		<Node Name="Publish LinuxNoEditor" Requires="Stage Linux">
-			<Copy Files="..." From="$(LocalStagingDir)/LinuxNoEditor" To="$(BuildDir)/LinuxNoEditor"/>
-		</Node>
-		<Node Name="Publish LinuxServer" Requires="Stage Linux">
+		<Node Name="Publish LinuxServer" Requires="Stage LinuxServer">
 			<Copy Files="..." From="$(LocalStagingDir)/LinuxServer" To="$(BuildDir)/LinuxServer"/>
 		</Node>
 	</Agent>
