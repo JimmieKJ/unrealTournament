@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
+# Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 set -e
 
@@ -10,6 +10,13 @@ if [ ! -f Engine/Build/BatchFiles/Mac/GenerateProjectFiles.sh ]; then
        in the root UE4 directory and must be run from there."
   exit 1
 fi 
+
+if [ -f Setup.sh ]; then
+	if [ ! -f .ue4dependencies ]; then
+		echo "Please run Setup to download dependencies before generating project files."
+		exit 1
+	fi
+fi
 
 if [ "$(uname)" = "Darwin" ]; then
 	cd Engine/Build/BatchFiles/Mac
