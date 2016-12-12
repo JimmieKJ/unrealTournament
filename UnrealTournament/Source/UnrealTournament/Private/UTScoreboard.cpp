@@ -153,62 +153,69 @@ void UUTScoreboard::DrawMinimap(float RenderDelta)
 
 void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 {
-	float LeftEdge = 10.f * RenderScale;
-
-	// Draw the Background
-	DrawTexture(UTHUDOwner->ScoreboardAtlas,LeftEdge,YOffset, RenderSize.X - 2.f*LeftEdge, 72.f*RenderScale, 4.f*RenderScale,2,124, 128, 1.0);
-
-	// Draw the Logo
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + 80.f * RenderScale, YOffset + 36.f * RenderScale, 150.5f * RenderScale, 49.f * RenderScale, 162,14,301, 98.0, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-	
-	// Draw the Spacer Bar
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge + 180.f * RenderScale, YOffset + 30.f * RenderScale, 4.f * RenderScale, 72.f * RenderScale, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0f, 0.5f));
-	FText MapName = UTHUDOwner ? FText::FromString(UTHUDOwner->GetWorld()->GetMapName().ToUpper()) : FText::GetEmpty();
-	FText GameName = FText::GetEmpty();
-	if (UTGameState && UTGameState->GameModeClass)
-	{
-		AUTGameMode* DefaultGame = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-		if (DefaultGame) 
-		{
-			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
-		}
-	}
+	float MessageX = 0.f;
+	float MessageY = 0.f;
+	FText GameMessage = FText::GetEmpty();
 	if (UTHUDOwner->ScoreMessageText.IsEmpty())
-	{ 
+	{
+		FText MapName = UTHUDOwner ? FText::FromString(UTHUDOwner->GetWorld()->GetMapName().ToUpper()) : FText::GetEmpty();
+		FText GameName = FText::GetEmpty();
+		if (UTGameState && UTGameState->GameModeClass)
+		{
+			AUTGameMode* DefaultGame = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+			if (DefaultGame)
+			{
+				GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
+			}
+		}
 		FFormatNamedArguments Args;
 		Args.Add("GameName", FText::AsCultureInvariant(GameName));
 		Args.Add("MapName", FText::AsCultureInvariant(MapName));
-		FText GameMessage = FText::Format(GameMessageText, Args);
-		DrawText(GameMessage, 220.f*RenderScale, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); 
+		GameMessage = FText::Format(GameMessageText, Args);
+		Canvas->StrLen(UTHUDOwner->MediumFont, GameMessageText.ToString(), MessageX, MessageY);
+		MessageX *= RenderScale;
+	}
+	else
+	{
+		MessageX = UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, 220.f*RenderScale, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, true);
+	}
+
+	// Draw the Background
+	float LeftEdge = 0.5f*(Canvas->ClipX - FMath::Clamp(MessageX+100.f*RenderScale, 520.f, Canvas->ClipX));
+	DrawTexture(UTHUDOwner->ScoreboardAtlas,LeftEdge - 16.f*RenderScale,YOffset, RenderSize.X - 2.f*LeftEdge + 32.f*RenderScale, 72.f*RenderScale, 4.f*RenderScale,2,124, 128, 1.0);
+
+	if (UTHUDOwner->ScoreMessageText.IsEmpty())
+	{ 
+		DrawText(GameMessage, LeftEdge, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
 		UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, 220.f*RenderScale, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, false);
 	}
 
-	DrawGameOptions(RenderDelta, YOffset);
+	DrawGameOptions(RenderDelta, YOffset, RenderSize.X - LeftEdge);
 	YOffset += 72.f*RenderScale;	// The size of this zone.
 }
 
-void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
+void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset, float RightEdge)
 {
 	if (UTGameState)
 	{
 		FText StatusText = UTGameState->GetGameStatusText(true);
 		if (!StatusText.IsEmpty())
 		{
-			DrawText(StatusText, Canvas->ClipX - 100.f*RenderScale, YOffset + 48.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(StatusText, RightEdge, YOffset + 48.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 		else if (UTGameState->GoalScore > 0)
 		{
 			// Draw Game Text
 			FText Score = FText::Format(UTGameState->GoalScoreText, FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Canvas->ClipX - 100.f*RenderScale, YOffset + 48.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Score, RightEdge, YOffset + 48.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 
 		float DisplayedTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
 		FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), DisplayedTime, false, true, true);
-		DrawText(Timer, Canvas->ClipX - 100.f*RenderScale, YOffset + 22.f*RenderScale, UTHUDOwner->NumberFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+		DrawText(Timer, RightEdge, YOffset + 22.f*RenderScale, UTHUDOwner->NumberFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 }
 

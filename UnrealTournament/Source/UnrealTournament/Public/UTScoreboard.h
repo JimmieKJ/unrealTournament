@@ -210,7 +210,7 @@ protected:
 	}
 
 	virtual void DrawGamePanel(float RenderDelta, float& YOffset);
-	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
+	virtual void DrawGameOptions(float RenderDelta, float& YOffset, float RightEdge);
 
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawMinimap(float RenderDelta);

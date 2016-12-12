@@ -119,7 +119,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
-	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.6");
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.7");
 	bShowVoiceDebug = false;
 	bDrawDamageNumbers = true;
 
@@ -898,7 +898,7 @@ void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;
 	FVector2D Size = FVector2D(150.0f * RenderScale, 49.0f * RenderScale);
-	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 70.0f * RenderScale);
+	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 90.0f * RenderScale);
 	Canvas->DrawColor = FColor(255,255,255,64);
 	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
 
