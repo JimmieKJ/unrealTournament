@@ -24,6 +24,7 @@
 #include "UTDroppedPickup.h"
 #include "UTAnnouncer.h"
 #include "UTProj_ShockBall.h"
+#include "UTTeamDeco.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -1600,35 +1601,42 @@ void AUTWeapon::NetSynchRandomSeed()
 
 void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime)
 {
+	UE_LOG(UT, Warning, TEXT("Hitscantrace TraceRadius %f"), TraceRadius);
 	ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
 	FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, UTOwner);
 	if (TraceRadius <= 0.0f)
 	{
-		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+		UE_LOG(UT, Warning, TEXT("Hitscantrace 0"));
+		int32 SkipActorCount = 3;
+		while (SkipActorCount > 0)
 		{
-			Hit.Location = EndTrace;
-		}
-		else if (bIgnoreShockballs && Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
-		{
-			int32 HitShockballCount = 3;
-			QueryParams.AddIgnoredActor(Hit.Actor.Get());
-			while (HitShockballCount > 0)
+			UE_LOG(UT, Warning, TEXT("Hitscantrace Skipcount %d"), SkipActorCount);
+			int32 NewSkipActorCount = 0;
+			if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
 			{
-				if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+				Hit.Location = EndTrace;
+			}
+			else if (Hit.Actor.IsValid())
+			{
+				UE_LOG(UT, Warning, TEXT("Hit %s"), *Hit.Actor->GetName());
+				if (bIgnoreShockballs && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
 				{
-					Hit.Location = EndTrace;
-					HitShockballCount = 0;
-				}
-				else if (Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
-				{
-					HitShockballCount--;
 					QueryParams.AddIgnoredActor(Hit.Actor.Get());
+					NewSkipActorCount = SkipActorCount--;
 				}
-				else
+				else if (UTOwner && (Cast<AUTCharacter>(Hit.Actor.Get()) || (Cast<AUTTeamDeco>(Hit.Actor.Get()) && !((AUTTeamDeco *)(Hit.Actor.Get()))->bBlockTeamProjectiles)))
 				{
-					HitShockballCount = 0;
+					UE_LOG(UT, Warning, TEXT("CheckTeam %s"), *Hit.Actor->GetName());
+					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+					if (GS && GS->OnSameTeam(UTOwner, Hit.Actor.Get()))
+					{
+						UE_LOG(UT, Warning, TEXT("SAME Team %s"), *Hit.Actor->GetName());
+						QueryParams.AddIgnoredActor(Hit.Actor.Get());
+						NewSkipActorCount = SkipActorCount--;
+					}
 				}
 			}
+			SkipActorCount = NewSkipActorCount;
 		}
 	}
 	else
