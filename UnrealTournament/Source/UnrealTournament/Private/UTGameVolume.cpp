@@ -85,7 +85,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = ((AUTCharacter*)(Other));
 		P->LastGameVolume = this;
 		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		if (GS != nullptr && P->PlayerState != nullptr && !GS->IsMatchIntermission() && GS->IsMatchInProgress())
+		if (GS != nullptr && P->PlayerState != nullptr && !GS->IsMatchIntermission() && (GS->IsMatchInProgress() || (Cast<AUTPlayerState>(P->PlayerState) && ((AUTPlayerState*)(P->PlayerState))->bIsWarmingUp)))
 		{
 			if (bIsTeamSafeVolume)
 			{
