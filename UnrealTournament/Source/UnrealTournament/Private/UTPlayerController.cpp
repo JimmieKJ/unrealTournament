@@ -621,6 +621,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		}
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
+			UE_LOG(UT, Warning, TEXT("%s Update floor slide %d"), *GetName(), bIsHoldingFloorSlide);
 			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
 			bNeedsRallyNotify = true;
 			bNeedsBoostNotify = true;

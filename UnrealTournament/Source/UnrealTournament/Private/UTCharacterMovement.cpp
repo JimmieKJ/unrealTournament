@@ -368,6 +368,10 @@ void UUTCharacterMovement::ClearFallingStateFlags()
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
+		if (UTCharOwner->Role != ROLE_Authority)
+		{
+			UTCharOwner->bRepFloorSliding = false;
+		}
 	}
 	bExplicitJump = false;
 	ClearRestrictedJump();
@@ -1016,6 +1020,10 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVec
 		if (UTChar)
 		{
 			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
+			if (UTChar->Role != ROLE_Authority)
+			{
+				UTChar->bRepFloorSliding = true;
+			}
 		}
 		AUTPlayerState* PS = CharacterOwner ? Cast<AUTPlayerState>(CharacterOwner->PlayerState) : NULL;
 		if (PS)
@@ -1403,6 +1411,10 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
+		if (UTCharOwner->Role != ROLE_Authority)
+		{
+			UTCharOwner->bRepFloorSliding = bIsFloorSliding;
+		}
 	}
 	bExplicitJump = false;
 	ClearRestrictedJump();
@@ -1574,6 +1586,11 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			{
 				UE_LOG(UTNet, Warning, TEXT("SPRINTING NOW %d"), bIsSprinting);
 			}*/
+			AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+			if (UTCharOwner && (UTCharOwner->Role != ROLE_Authority))
+			{
+				UTCharOwner->bRepFloorSliding = bIsFloorSliding;
+			}
 		}
 
 		if (!bIsFloorSliding && bWasFloorSliding)
