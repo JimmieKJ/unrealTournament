@@ -842,13 +842,11 @@ void UNavigationSystem::Tick(float DeltaSeconds)
 	}
 
 	// Tick navigation mesh async builders
-	if (!bAsyncBuildPaused && (bNavigationAutoUpdateEnabled || bIsGame 
-		/*
+	if (!bAsyncBuildPaused && (bNavigationAutoUpdateEnabled || bIsGame 		
 #if WITH_EDITOR
 		// continue ticking if build is in progress
-		|| (GIsEditor && IsNavigationBuildInProgress())
+		|| (GIsEditor && IsNavigationBuildInProgress(false))
 #endif // WITH_EDITOR
-		*/
 		))
 	{
 		SCOPE_CYCLE_COUNTER(STAT_Navigation_TickAsyncBuild);
