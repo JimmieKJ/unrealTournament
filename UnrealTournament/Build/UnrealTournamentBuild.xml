@@ -153,8 +153,8 @@
 			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win32Exe" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win32Binaries" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win64Exe" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win64Binaries" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 		
-			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win32Exe-Win32" FinalVersion="$(BuildVersion)-Win32" Platform="" CloudDir="$(CloudDir)"/>
-			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win64Exe-Windows" FinalVersion="$(BuildVersion)-Windows" Platform="" CloudDir="$(CloudDir)"/>
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win32Exe-Win32" FinalVersion="$(BuildVersion)-Win32" CloudDir="$(CloudDir)"/>
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir-Windows" PatchVersion="$(BuildVersion)-Win64Exe-Windows" FinalVersion="$(BuildVersion)-Windows" CloudDir="$(CloudDir)"/>
 		</Node>
 		<Node Name="Post WindowsNoEditor" Requires="Chunk WindowsNoEditor">
 			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
