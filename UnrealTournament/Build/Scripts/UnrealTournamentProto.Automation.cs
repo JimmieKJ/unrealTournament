@@ -380,6 +380,8 @@ namespace UnrealTournamentGame.Automation
 
 			List<TargetPlatformDescriptor> ClientTargetPlatforms = GetClientTargetPlatforms(Cmd, TargetPlatformOverride);
 			List<TargetPlatformDescriptor> ServerTargetPlatforms = GetServerTargetPlatforms(Cmd, TargetPlatformOverride);
+			List<UnrealTargetConfiguration> ClientConfigs = GetClientConfigsToBuild(Cmd, TargetPlatformOverride);
+			List<UnrealTargetConfiguration> ServerConfigs = GetServerConfigsToBuild(Cmd, TargetPlatformOverride);
 
 			ProjectParams Params = new ProjectParams
 			(
@@ -391,10 +393,11 @@ namespace UnrealTournamentGame.Automation
 				ClientCookedTargets: new ParamList<string>("UnrealTournament"),
 				ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
 
-				ClientConfigsToBuild: GetClientConfigsToBuild(Cmd, TargetPlatformOverride),
-				ServerConfigsToBuild: GetServerConfigsToBuild(Cmd, TargetPlatformOverride),
+				ClientConfigsToBuild: ClientConfigs,
+				ServerConfigsToBuild: ServerConfigs,
                 ClientTargetPlatforms: ClientTargetPlatforms,
 				ServerTargetPlatforms: ServerTargetPlatforms,
+				NoClient: ClientConfigs.Count == 0,
 				Build: !Cmd.ParseParam("skipbuild"),
 				Cook: true,
 				CulturesToCook: new ParamList<string>("en"),
