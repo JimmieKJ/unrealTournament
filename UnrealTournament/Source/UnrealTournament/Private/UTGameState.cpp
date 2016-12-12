@@ -1135,7 +1135,7 @@ void AUTGameState::ReceivedGameModeClass()
 
 void AUTGameState::StartRecordingReplay()
 {
-/	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
+	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
 	bool bGameModeSupportsInstantReplay = UTGameClass ? UTGameClass.GetDefaultObject()->SupportsInstantReplay() : false;
 		
 	UWorld* const World = GetWorld();
