@@ -345,7 +345,7 @@ void AUTWeaponLocker::PlayTakenEffects(bool bReplicate)
 		}
 		for (const FWeaponLockerItem& Item : WeaponList)
 		{
-			TakenSound = (Item.WeaponType != NULL) ? TakenSound = Item.WeaponType->GetDefaultObject<AUTWeapon>()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
+			TakenSound = (Item.WeaponType != NULL) ? TakenSound = Item.WeaponType->GetDefaultObject<AUTWeapon>()->PickupSound : GetClass()->GetDefaultObject<AUTPickup>()->TakenSound;
 			UUTGameplayStatics::UTPlaySound(GetWorld(), TakenSound, this, SRT_None, false, FVector::ZeroVector, NULL, NULL, false);
 		}
 	}
