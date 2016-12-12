@@ -552,7 +552,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						ReplicatedRallyTimeRemaining = MinimumRallyTime;
 						if (NearbyFC->Health < NearbyFC->HealthMax)
 						{
-							NearbyFC->Health += FMath::Min(25, NearbyFC->HealthMax - NearbyFC->Health);
+							NearbyFC->Health += FMath::Min(50, NearbyFC->HealthMax - NearbyFC->Health);
 						}
 						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyPoweredComplete, MinimumRallyTime, false);
 						if (GetNetMode() != NM_DedicatedServer)
