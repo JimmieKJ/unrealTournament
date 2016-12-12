@@ -360,6 +360,8 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual void ReceivedGameModeClass() override;
 
+	virtual void StartRecordingReplay();
+
 	virtual FText GetGameStatusText(bool bForScoreboard = false);
 
 	virtual FLinearColor GetGameStatusColor();

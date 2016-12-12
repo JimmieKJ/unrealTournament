@@ -1116,7 +1116,6 @@ void AUTGameState::ReceivedGameModeClass()
 	Super::ReceivedGameModeClass();
 
 	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
-	bool bGameModeSupportsInstantReplay = false;
 	if (UTGameClass != NULL)
 	{
 		// precache announcements
@@ -1128,9 +1127,17 @@ void AUTGameState::ReceivedGameModeClass()
 				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
 			}
 		}
-		bGameModeSupportsInstantReplay = UTGameClass.GetDefaultObject()->SupportsInstantReplay();
 	}
 
+	FTimerHandle TempHandle;
+	GetWorld()->GetTimerManager().SetTimer(TempHandle, this, &AUTGameState::StartRecordingReplay, 0.5f, false);
+}
+
+void AUTGameState::StartRecordingReplay()
+{
+/	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
+	bool bGameModeSupportsInstantReplay = UTGameClass ? UTGameClass.GetDefaultObject()->SupportsInstantReplay() : false;
+		
 	UWorld* const World = GetWorld();
 	UGameInstance* const GameInstance = GetGameInstance();
 

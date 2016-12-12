@@ -33,6 +33,8 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	SilverBonusColor = FLinearColor(0.5f, 0.5f, 0.75f);
 	BronzeBonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
 	bEnemyRallyPointIdentified = false;
+
+	bTeamGame = true;
 }
 
 void AUTFlagRunGameState::BeginPlay()
