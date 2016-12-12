@@ -2202,7 +2202,8 @@ namespace UnrealBuildTool
 			// Add all the version manifests to the receipt
 			foreach(FileReference VersionManifestFile in FileNameToVersionManifest.Keys)
 			{
-				Receipt.AddBuildProduct(VersionManifestFile.FullName, BuildProductType.RequiredResource);
+				string VariablePath = TargetReceipt.InsertPathVariables(VersionManifestFile.FullName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
+				Receipt.AddBuildProduct(VariablePath, BuildProductType.RequiredResource);
 			}
 		}
 
