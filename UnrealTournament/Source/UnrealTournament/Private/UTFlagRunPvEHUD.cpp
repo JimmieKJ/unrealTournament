@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTFlagRunPvEHUD.h"
+#include "UTFlagRunPvEGameState.h"
 
 AUTFlagRunPvEHUD::AUTFlagRunPvEHUD(const FObjectInitializer& OI)
 	: Super(OI)
@@ -69,6 +70,20 @@ void AUTFlagRunPvEHUD::DrawHUD()
 			Canvas->TextSize(SmallFont, Keys[0], XL, YL);
 			Canvas->DrawColor = FColor::White;
 			Canvas->DrawText(SmallFont, Keys[0], Canvas->ClipX * 0.8f + (Size - XL) * 0.5f, Canvas->ClipY * 0.8f - YL * 1.1f);
+		}
+	}
+
+	if (UTPlayerOwner != nullptr && UTPlayerOwner->PlayerState != nullptr && !UTPlayerOwner->PlayerState->bOnlySpectator)
+	{
+		// draw extra life display
+		AUTFlagRunPvEGameState* GS = GetWorld()->GetGameState<AUTFlagRunPvEGameState>();
+		if (GS != nullptr)
+		{
+			Canvas->DrawColor = FColor::White;
+			FText Txt = FText::Format(NSLOCTEXT("UnrealTournmanet", "KillsToLives", "{0} more kills for extra life"), FText::AsNumber(GS->KillsUntilExtraLife));
+			float XL, YL;
+			Canvas->TextSize(SmallFont, Txt.ToString(), XL, YL);
+			Canvas->DrawText(SmallFont, Txt, FMath::TruncToFloat(Canvas->ClipX * 0.95f - XL), FMath::TruncToFloat(Canvas->ClipY * 0.15f));
 		}
 	}
 }

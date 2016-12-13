@@ -6,6 +6,7 @@
 #include "UTPickupHealth.h"
 #include "UTFlagRunPvESquadAI.h"
 #include "UTPvEGameMessage.h"
+#include "UTFlagRunPvEGameState.h"
 
 AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -18,12 +19,14 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	UnlimitedRespawnWaitTime = 10.0f;
 	RollingAttackerRespawnDelay = 10.0f;
 	bRollingAttackerSpawns = true;
-	RoundLives = 9;
+	RoundLives = 3;
+	BaseKillsForExtraLife = 25;
 	TimeLimit = 10;
 	MonsterCostLimit = 5;
 	bUseLevelTiming = false;
 	HUDClass = AUTFlagRunPvEHUD::StaticClass();
 	SquadType = AUTFlagRunPvESquadAI::StaticClass();
+	GameStateClass = AUTFlagRunPvEGameState::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "FRPVE", "Flag Invasion");
 
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/BronzeTaye.BronzeTaye_C")));
@@ -79,9 +82,9 @@ void AUTFlagRunPvEGame::StartMatch()
 {
 	Super::StartMatch();
 
+	AUTFlagRunPvEGameState* GS = Cast<AUTFlagRunPvEGameState>(GameState);
 	if (BoostPowerupTypes.Num() > 0)
 	{
-		AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GameState);
 		bAllowBoosts = true;
 		GS->bAllowBoosts = true;
 		GS->BoostRechargeTime = 180.0f;
@@ -98,6 +101,7 @@ void AUTFlagRunPvEGame::StartMatch()
 		}
 		GS->SetSelectablePowerups(TArray<TSubclassOf<AUTInventory>>(), BoostList);
 	}
+	GS->KillsUntilExtraLife = BaseKillsForExtraLife;
 }
 
 bool AUTFlagRunPvEGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
@@ -230,6 +234,38 @@ bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Mome
 		}
 	}
 	return true;
+}
+
+void AUTFlagRunPvEGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+
+	if ((Cast<APlayerController>(Killer) != nullptr || Cast<AUTBotPlayer>(Killer) != nullptr) && Cast<AUTMonster>(KilledPawn) != nullptr)
+	{
+		AUTFlagRunPvEGameState* GS = GetWorld()->GetGameState<AUTFlagRunPvEGameState>();
+		GS->KillsUntilExtraLife--;
+		if (GS->KillsUntilExtraLife <= 0)
+		{
+			for (int32 i = 0; i < GameState->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
+				if (PS != nullptr && PS->Team == Teams[1])
+				{
+					PS->RemainingLives++;
+					if (PS->bOutOfLives)
+					{
+						PS->SetOutOfLives(false);
+						PS->ForceNetUpdate();
+						RestartPlayer(Cast<AController>(PS->GetOwner()));
+					}
+				}
+			}
+			GS->ExtraLivesGained++;
+			GS->KillsUntilExtraLife = BaseKillsForExtraLife * (GS->ExtraLivesGained + 1);
+			BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 1);
+		}
+		GS->ForceNetUpdate();
+	}
 }
 
 void AUTFlagRunPvEGame::FindAndMarkHighScorer()

@@ -23,6 +23,10 @@ public:
 	UPROPERTY()
 	FStringClassReference VialReplacement;
 
+	/** number of kills to gain an extra life (multiplied by number of lives gained so far) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	int32 BaseKillsForExtraLife;
+
 	/** amount of points available to spawn monsters */
 	UPROPERTY(BlueprintReadWrite)
 	int32 MonsterPointsRemaining;
@@ -50,7 +54,8 @@ public:
 	virtual void AddMonsters(int32 MaxNum);
 	UFUNCTION()
 	virtual void EscalateMonsters();
-	bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
+	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override
 	{}
 	virtual void FindAndMarkHighScorer() override;

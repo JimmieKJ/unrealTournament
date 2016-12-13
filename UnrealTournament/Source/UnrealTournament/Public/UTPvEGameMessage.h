@@ -19,12 +19,22 @@ public:
 		MessageSlot = FName(TEXT("GameMessages"));
 
 		ReinforcementsMsg = NSLOCTEXT("PvEMessage", "Reinforcements", "Enemy Reinforcements Have Arrived!");
+		ExtraLifeMsg = NSLOCTEXT("PvEMessage", "ExtraLife", "Extra Life Earned!");
+
+		static ConstructorHelpers::FObjectFinder<USoundBase> ReinforcementsSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyRally.EnemyRally'"));
+		ReinforcementsSound = ReinforcementsSoundFinder.Object;
+		static ConstructorHelpers::FObjectFinder<USoundBase> ExtraLifeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Gameplay_CTF_CaptureSound01.A_Gameplay_CTF_CaptureSound01'"));
+		ExtraLifeSound = ExtraLifeSoundFinder.Object;
 	}
 
 	UPROPERTY(EditDefaultsOnly)
 	FText ReinforcementsMsg;
 	UPROPERTY(EditDefaultsOnly)
+	FText ExtraLifeMsg;
+	UPROPERTY(EditDefaultsOnly)
 	USoundBase* ReinforcementsSound;
+	UPROPERTY(EditDefaultsOnly)
+	USoundBase* ExtraLifeSound;
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const
 	{
@@ -36,6 +46,9 @@ public:
 			{
 				case 0:
 					PC->UTClientPlaySound(ReinforcementsSound);
+					break;
+				case 1:
+					PC->UTClientPlaySound(ExtraLifeSound);
 					break;
 				default:
 					break;
