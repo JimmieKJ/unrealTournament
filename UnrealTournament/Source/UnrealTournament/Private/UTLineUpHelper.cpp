@@ -60,7 +60,6 @@ void AUTLineUpHelper::CleanUp()
 		}
 
 		bIsActive = false;
-		LastActiveType = LineUpTypes::Invalid;
 		
 		if (GetWorld())
 		{
@@ -69,6 +68,7 @@ void AUTLineUpHelper::CleanUp()
 				AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
 				if (UTPC)
 				{
+					CleanUpPlayerAfterLineUp(UTPC);
 					UTPC->ClientSetActiveLineUp(false, LineUpTypes::Invalid);
 				}
 			}
@@ -84,6 +84,26 @@ void AUTLineUpHelper::CleanUp()
 	}
 }
 		
+void AUTLineUpHelper::CleanUpPlayerAfterLineUp(AUTPlayerController* UTPC)
+{
+	if (UTPC != nullptr)
+	{
+		//Clear any active taunts
+		AUTCharacter* UTChar = UTPC->GetUTCharacter();
+		if (UTChar && UTChar->CurrentTaunt && UTChar->GetMesh())
+		{
+			UAnimInstance* AnimInstance = UTChar->GetMesh()->GetAnimInstance();
+			if (AnimInstance != nullptr)
+			{
+				AnimInstance->Montage_Stop(0.0f, UTChar->CurrentTaunt);
+			}
+		}
+
+		UTPC->SetEmoteSpeed(1.0f);
+		UTPC->FlushPressedKeys();
+	}
+}
+
 void AUTLineUpHelper::DestroySpawnedClones()
 {
 	if (PlayerPreviewCharacters.Num() > 0)

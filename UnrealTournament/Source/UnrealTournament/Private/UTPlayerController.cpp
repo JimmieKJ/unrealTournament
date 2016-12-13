@@ -5388,6 +5388,8 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 			}
 			else
 			{
+				AUTLineUpHelper::CleanUpPlayerAfterLineUp(this);
+
 				//Need to kill local pawn and then restart, so that we sync back up with the server
 				if (GetPawn())
 				{

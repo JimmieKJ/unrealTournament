@@ -36,6 +36,9 @@ class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 
 	static AActor* GetCameraActorForLineUp(UWorld* World, LineUpTypes ZoneType);
 
+	/*Handles all the clean up for a particular player when a line-up is ending*/
+	static void CleanUpPlayerAfterLineUp(AUTPlayerController* UTPC);
+
 protected:
 
 	void ClientUpdatePlayerClones();
