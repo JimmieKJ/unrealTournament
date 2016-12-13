@@ -8,8 +8,8 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	EmphasisOutlineColor = FLinearColor::Black;
 	EmphasisScaling = 1.1f;
 	ManagedMessageArea = FName(TEXT("Announcements"));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.17f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.23f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("Spree")), 0.17f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("MajorRewardMessage")), 0.23f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("DeathMessage")), 0.30f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("Multikill")), 0.36f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.43f));
