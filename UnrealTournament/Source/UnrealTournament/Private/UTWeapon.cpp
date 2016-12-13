@@ -1601,16 +1601,14 @@ void AUTWeapon::NetSynchRandomSeed()
 
 void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime)
 {
-	UE_LOG(UT, Warning, TEXT("Hitscantrace TraceRadius %f"), TraceRadius);
 	ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
 	FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, UTOwner);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (TraceRadius <= 0.0f)
 	{
-		UE_LOG(UT, Warning, TEXT("Hitscantrace 0"));
 		int32 SkipActorCount = 3;
 		while (SkipActorCount > 0)
 		{
-			UE_LOG(UT, Warning, TEXT("Hitscantrace Skipcount %d"), SkipActorCount);
 			int32 NewSkipActorCount = 0;
 			if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
 			{
@@ -1618,19 +1616,15 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 			}
 			else if (Hit.Actor.IsValid())
 			{
-				UE_LOG(UT, Warning, TEXT("Hit %s"), *Hit.Actor->GetName());
 				if (bIgnoreShockballs && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
 				{
 					QueryParams.AddIgnoredActor(Hit.Actor.Get());
 					NewSkipActorCount = SkipActorCount--;
 				}
-				else if (UTOwner && (Cast<AUTCharacter>(Hit.Actor.Get()) || (Cast<AUTTeamDeco>(Hit.Actor.Get()) && !((AUTTeamDeco *)(Hit.Actor.Get()))->bBlockTeamProjectiles)))
+				else if (UTOwner && Cast<AUTTeamDeco>(Hit.Actor.Get()) && !((AUTTeamDeco *)(Hit.Actor.Get()))->bBlockTeamProjectiles)
 				{
-					UE_LOG(UT, Warning, TEXT("CheckTeam %s"), *Hit.Actor->GetName());
-					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 					if (GS && GS->OnSameTeam(UTOwner, Hit.Actor.Get()))
 					{
-						UE_LOG(UT, Warning, TEXT("SAME Team %s"), *Hit.Actor->GetName());
 						QueryParams.AddIgnoredActor(Hit.Actor.Get());
 						NewSkipActorCount = SkipActorCount--;
 					}
@@ -1641,13 +1635,35 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 	}
 	else
 	{
-		if (GetWorld()->SweepSingleByChannel(Hit, StartLocation, EndTrace, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(TraceRadius), QueryParams))
+		int32 SkipActorCount = 2;
+		while (SkipActorCount > 0)
 		{
-			Hit.Location += (EndTrace - StartLocation).GetSafeNormal() * TraceRadius; // so impact point is still on the surface of the target collision
-		}
-		else
-		{
-			Hit.Location = EndTrace;
+			int32 NewSkipActorCount = 0;
+			if (!GetWorld()->SweepSingleByChannel(Hit, StartLocation, EndTrace, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(TraceRadius), QueryParams))
+			{
+				Hit.Location = EndTrace;
+			}
+			else
+			{
+				Hit.Location += (EndTrace - StartLocation).GetSafeNormal() * TraceRadius; // so impact point is still on the surface of the target collision
+				if (Hit.Actor.IsValid())
+				{
+					if (bIgnoreShockballs && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
+					{
+						QueryParams.AddIgnoredActor(Hit.Actor.Get());
+						NewSkipActorCount = SkipActorCount--;
+					}
+					else if (UTOwner && Cast<AUTTeamDeco>(Hit.Actor.Get()) && !((AUTTeamDeco *)(Hit.Actor.Get()))->bBlockTeamProjectiles)
+					{
+						if (GS && GS->OnSameTeam(UTOwner, Hit.Actor.Get()))
+						{
+							QueryParams.AddIgnoredActor(Hit.Actor.Get());
+							NewSkipActorCount = SkipActorCount--;
+						}
+					}
+				}
+			}
+			SkipActorCount = NewSkipActorCount;
 		}
 	}
 	if (!(Hit.Location - StartLocation).IsNearlyZero())
@@ -1659,7 +1675,7 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
 			AUTCharacter* Target = Cast<AUTCharacter>(*Iterator);
-			if (Target && (Target != UTOwner))
+			if (Target && (Target != UTOwner) && (!GS || !GS->OnSameTeam(UTOwner, Target)))
 			{
 				// find appropriate rewind position, and test against trace from StartLocation to Hit.Location
 				FVector TargetLocation = ((PredictionTime > 0.f) && (Role == ROLE_Authority)) ? Target->GetRewindLocation(PredictionTime) : Target->GetActorLocation();
