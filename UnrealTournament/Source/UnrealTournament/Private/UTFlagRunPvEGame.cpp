@@ -5,6 +5,7 @@
 #include "UTFlagRunPvEHUD.h"
 #include "UTPickupHealth.h"
 #include "UTFlagRunPvESquadAI.h"
+#include "UTPvEGameMessage.h"
 
 AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -206,6 +207,10 @@ void AUTFlagRunPvEGame::EscalateMonsters()
 	MonsterCostLimit += 2 + int32(GameDifficulty) / 3;
 	MonsterPointsRemaining += MonsterCostLimit;
 	AddMonsters(MonsterPointsRemaining / GetClass()->GetDefaultObject<AUTFlagRunPvEGame>()->MonsterCostLimit);
+	if (UTGameState->ElapsedTime > 0)
+	{
+		BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 0);
+	}
 }
 
 bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
