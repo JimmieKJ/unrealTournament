@@ -213,6 +213,17 @@ bool AUTAsymCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	return TryPathTowardObjective(B, Objective, false, "Head to enemy base with flag");
 }
 
+bool AUTAsymCTFSquadAI::TryPathToFlag(AUTBot* B, TArray<FAlternateRoute>& Routes, const FString& SuccessGoalString)
+{
+	const UUTPathNode* FlagNode = NavData->FindNearestNode(Flag->GetActorLocation(), NavData->GetPOIExtent(Flag));
+	if (FlagNode != LastFlagNode)
+	{
+		Routes.Reset();
+		LastFlagNode = FlagNode;
+	}
+	return FollowAlternateRoute(B, Flag, Routes, true, true, SuccessGoalString) || B->TryPathToward(Flag, true, true, SuccessGoalString);
+}
+
 void AUTAsymCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
 {
 	Super::GetPossibleEnemyGoals(B, EnemyInfo, Goals);
@@ -272,13 +283,7 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 	else
 	{
 		// use alternate route to reach flag so that defenders approach from multiple angles
-		const UUTPathNode* FlagNode = NavData->FindNearestNode(Flag->GetActorLocation(), NavData->GetPOIExtent(Flag));
-		if (FlagNode != LastFlagNode)
-		{
-			SquadRoutes.Reset();
-			LastFlagNode = FlagNode;
-		}
-		return FollowAlternateRoute(B, Flag, SquadRoutes, true, true, "Camp dropped flag") || B->TryPathToward(Flag, true, true, "Camp dropped flag");
+		return TryPathToFlag(B, SquadRoutes, "Camp dropped flag");
 	}
 }
 
@@ -354,7 +359,23 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 						}
 					}
 				}
-				return B->TryPathToward(Flag, true, false, "Get flag");
+				// use alternate route to flag when respawned, not if it dropped while we were alive
+				if (B->UsingSquadRouteIndex != INDEX_NONE || GetWorld()->TimeSeconds - B->GetPawn()->CreationTime < 10.0f)
+				{
+					bool bResult = TryPathToFlag(B, FlagRetrievalRoutes, "Get flag");
+					// amortize generation of alternate routes during the first couple nodes while the bot is in spawn
+					if (FlagRetrievalRoutes.Num() < 3)
+					{
+						B->UsingSquadRouteIndex = INDEX_NONE;
+						B->bDisableSquadRoutes = false;
+						CurrentSquadRouteIndex = INDEX_NONE;
+					}
+					return bResult;
+				}
+				else
+				{
+					return B->TryPathToward(Flag, true, false, "Get flag");
+				}
 			}
 			else if ((B->GetPawn()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() < 2000.0f)
 			{

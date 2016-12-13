@@ -22,9 +22,12 @@ public:
 	// cached distance from flag start point to capture point
 	UPROPERTY()
 	float TotalFlagRunDistance;
-	// cached PathNode that the flag was most recently at, used for defender flag approach pathing
+	// cached PathNode that the flag was most recently at, used for flag approach pathing
 	UPROPERTY()
 	const UUTPathNode* LastFlagNode;
+	// alternate routes for attacker team flag approach (since default list is used for trying to score once holding flag)
+	UPROPERTY()
+	TArray<FAlternateRoute> FlagRetrievalRoutes;
 
 	/** set when flag carrier wants to rally (used to avoid decision oscillation when on the edge of various thresholds) */
 	UPROPERTY()
@@ -46,6 +49,8 @@ public:
 	virtual bool CheckSquadObjectives(AUTBot* B) override;
 	virtual int32 GetDefensePointPriority(AUTBot* B, class AUTDefensePoint* Point);
 
+	/** use given alternate routes to attempt to reach flag; handles adjusting route for flag incremental return behavior */
+	virtual bool TryPathToFlag(AUTBot* B, TArray<FAlternateRoute>& Routes, const FString& SuccessGoalString);
 	/** return whether flag carrier should go for a rally point instead of the enemy base */
 	virtual bool ShouldStartRally(AUTBot* B);
 	/** return action for flag carrier to take */
