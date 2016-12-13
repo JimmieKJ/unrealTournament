@@ -2339,12 +2339,13 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 				}
 				else
 				{
-					UE_LOG(LogNetPackageMap, Log, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
+					UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: Already async loading package. Path: %s, NetGUID: %s"), *CacheObjectPtr->PathName.ToString(), *NetGUID.ToString());
 					if (PendingAsyncPackages[CacheObjectPtr->PathName] != NetGUID)
 					{
-						UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: NetGUID changed. Path: %s, NetGUID Original: %s, NetGUID New: %s"), *CacheObjectPtr->PathName.ToString(), *PendingAsyncPackages[CacheObjectPtr->PathName].ToString(), *NetGUID.ToString());
+						UE_LOG(LogNetPackageMap, Warning, TEXT("GetObjectFromNetGUID: NetGUID changed, fixing up PendingAsyncPackages entry. Path: %s, NetGUID Original: %s, NetGUID New: %s"), *CacheObjectPtr->PathName.ToString(), *PendingAsyncPackages[CacheObjectPtr->PathName].ToString(), *NetGUID.ToString());
+
+						PendingAsyncPackages[CacheObjectPtr->PathName] = NetGUID;
 					}
-					check(PendingAsyncPackages[CacheObjectPtr->PathName] == NetGUID);
 				}
 
 				// There is nothing else to do except wait on the delegate to tell us this package is done loading
