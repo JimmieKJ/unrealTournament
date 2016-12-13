@@ -1501,6 +1501,8 @@ void SUTPlayerSettingsDialog::RecreatePlayerPreview()
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, 0.0);
 	}
+	
+	PlayerPreviewMesh->BeginPlay();
 
 	if ( PreviewWeapon )
 	{
