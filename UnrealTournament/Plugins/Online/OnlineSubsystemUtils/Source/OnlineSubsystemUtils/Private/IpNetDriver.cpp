@@ -408,7 +408,7 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 					}
 					else
 					{
-						UE_LOG(LogNet, Log, TEXT("Server failed post-challenge connection from: %s"), *FromAddr->ToString(true));
+						UE_LOG(LogNet, VeryVerbose, TEXT("Server failed post-challenge connection from: %s"), *FromAddr->ToString(true));
 					}
 				}
 				else
