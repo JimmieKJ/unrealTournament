@@ -514,10 +514,10 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 					{
 						// otherwise, just do it now. We don't want to defer in this case because that can interfere with render target visualization (a debugging tool).
 						CopySceneColorAndRestore(RHICmdList, View, PrimitiveSceneProxy);
-						SetTranslucentState(RHICmdList, DrawRenderStateLocal);
 					}
 					// todo: this optimization is currently broken
 					DrawingContext.bSceneColorCopyIsUpToDate = (DrawingContext.TranslucenyPassType == ETranslucencyPass::TPT_SeparateTranslucency);
+					SetTranslucentState(RHICmdList, DrawRenderStateLocal);
 				}
 			}
 
