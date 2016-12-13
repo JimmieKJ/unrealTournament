@@ -1052,11 +1052,6 @@ void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerContr
 	if (PS->Team && IsTeamOnOffense(PS->Team->TeamIndex))
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
-		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-		if (FRGS && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner && !FRGS->CurrentRallyPoint)
-		{
-			PS->AnnounceStatus(StatusMessage::NeedRally);
-		}
 	}
 	if (PC && (PS->GetRemainingBoosts() > 0))
 	{
@@ -1139,7 +1134,11 @@ void AUTFlagRunGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
 {
 	Super::HandleRollingAttackerRespawn(OtherPS);
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS && GS->CurrentRallyPoint && GS->bAttackersCanRally && (GS->CurrentRallyPoint->RallyTimeRemaining > FMath::Max(float(OtherPS->RemainingRallyDelay), 2.f)))
+	if (GS && !GS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > OtherPS->NextRallyTime) && GS->bHaveEstablishedFlagRunner && !GS->CurrentRallyPoint)
+	{
+		OtherPS->AnnounceStatus(StatusMessage::NeedRally);
+	}
+	else if (GS && GS->CurrentRallyPoint && GS->bAttackersCanRally && (GS->CurrentRallyPoint->RallyTimeRemaining > FMath::Max(float(OtherPS->RemainingRallyDelay), 2.5f)))
 	{
 		float DesiredRespawnDelay = GS->CurrentRallyPoint->RallyTimeRemaining - 2.f;
 		if (OtherPS->RespawnWaitTime > DesiredRespawnDelay)
@@ -1148,3 +1147,4 @@ void AUTFlagRunGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
 		}
 	}
 }
+

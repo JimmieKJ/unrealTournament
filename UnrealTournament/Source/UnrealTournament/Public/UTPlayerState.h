@@ -326,13 +326,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
 	bool bCanRally;
 
-	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
 	float NextRallyTime;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
 	uint8 RemainingRallyDelay;
 
 	UPROPERTY()

@@ -60,6 +60,12 @@ class UNREALTOURNAMENT_API UUTCTFMajorMessage : public UUTCarriedObjectMessage
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FName RallyCompleteName;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText PressToRallyPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText PressToRallyPostfix;
+
 	virtual bool ShouldDrawMessage(int32 MessageIndex, class AUTPlayerController* PC, bool bIsAtIntermission, bool bNoLivePawnTarget) const override;
 	virtual bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;

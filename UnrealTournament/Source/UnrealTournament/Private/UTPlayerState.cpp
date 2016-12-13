@@ -780,7 +780,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 			AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 			if (GS && GS->bAttackersCanRally && MyPC && Team && (GS->bRedToCap == (Team->TeamIndex == 0)))
 			{
-				MyPC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23, nullptr);
+				MyPC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 30, this);
 			}
 		}
 		if (!StatsID.IsEmpty() && !RequestedName.IsEmpty() && Cast<AController>(GetOwner()))
