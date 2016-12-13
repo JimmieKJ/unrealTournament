@@ -123,6 +123,7 @@ public:
 
 	virtual bool SupportsInstantReplay() const override;
 	virtual void FindAndMarkHighScorer() override;
+	virtual void HandleRollingAttackerRespawn(AUTPlayerState* OtherPS) override;
 
 protected:
 

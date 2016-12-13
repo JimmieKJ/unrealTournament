@@ -1134,3 +1134,17 @@ void AUTFlagRunGame::FindAndMarkHighScorer()
 		}
 	}
 }
+
+void AUTFlagRunGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
+{
+	Super::HandleRollingAttackerRespawn(OtherPS);
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS && GS->CurrentRallyPoint && GS->bAttackersCanRally && (GS->CurrentRallyPoint->RallyTimeRemaining > FMath::Max(float(OtherPS->RemainingRallyDelay), 2.f)))
+	{
+		float DesiredRespawnDelay = GS->CurrentRallyPoint->RallyTimeRemaining - 2.f;
+		if (OtherPS->RespawnWaitTime > DesiredRespawnDelay)
+		{
+			OtherPS->RespawnWaitTime = FMath::Max(1.f, DesiredRespawnDelay);
+		}
+	}
+}
