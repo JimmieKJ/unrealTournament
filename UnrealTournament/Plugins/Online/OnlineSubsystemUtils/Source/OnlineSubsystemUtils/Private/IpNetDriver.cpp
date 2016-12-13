@@ -213,7 +213,6 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 	// Process all incoming packets.
 	uint8 Data[MAX_PACKET_SIZE];
 	uint8* DataRef = Data;
-	bool bIgnorePacket = false;
 	TSharedRef<FInternetAddr> FromAddr = SocketSubsystem->CreateInternetAddr();
 
 	for( ; Socket != NULL; )
@@ -344,6 +343,8 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		}
 		else
 		{
+			bool bIgnorePacket = false;
+
 			// If we didn't find a client connection, maybe create a new one.
 			if( !Connection )
 			{
@@ -352,6 +353,8 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 				if (bAcceptingConnection)
 				{
+					UE_LOG(LogNet, Log, TEXT("NotifyAcceptingConnection accepted from: %s"), *FromAddr->ToString(true));
+
 					bool bPassedChallenge = false;
 
 					bIgnorePacket = true;
@@ -403,6 +406,14 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 						Notify->NotifyAcceptedConnection( Connection );
 						AddClientConnection(Connection);
 					}
+					else
+					{
+						UE_LOG(LogNet, Log, TEXT("Server failed post-challenge connection from: %s"), *FromAddr->ToString(true));
+					}
+				}
+				else
+				{
+					UE_LOG(LogNet, VeryVerbose, TEXT("NotifyAcceptingConnection denied from: %s"), *FromAddr->ToString(true));
 				}
 			}
 
