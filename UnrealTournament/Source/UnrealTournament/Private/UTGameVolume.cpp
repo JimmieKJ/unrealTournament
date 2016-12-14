@@ -29,6 +29,8 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Pickups/Health/Asset/A_Pickups_Health_Small_Cue_Modulated.A_Pickups_Health_Small_Cue_Modulated'"));
 	HealthSound = EarnedSoundFinder.Object;
+
+	GetBrushComponent()->SetCollisionObjectType(COLLISION_GAMEVOLUME);
 }
 
 void AUTGameVolume::Reset_Implementation()
