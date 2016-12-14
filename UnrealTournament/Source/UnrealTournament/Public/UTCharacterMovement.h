@@ -170,6 +170,7 @@ public:
 	float SwimmingWallPushImpulse;
 
 	virtual void PhysSwimming(float deltaTime, int32 Iterations) override;
+	virtual void HandleSwimmingWallHit(const FHitResult& Hit, float DeltaTime) override;
 
 	/** True if was swimming in current, and haven't landed yet. */
 	UPROPERTY(BlueprintReadOnly, Category = Swimming)

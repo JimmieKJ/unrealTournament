@@ -1764,6 +1764,17 @@ float UUTCharacterMovement::SlideAlongSurface(const FVector& Delta, float Time, 
 	return Super::SlideAlongSurface(Delta, Time, InNormal, Hit, bHandleImpact);
 }
 
+void UUTCharacterMovement::HandleSwimmingWallHit(const FHitResult& Hit, float DeltaTime)
+{
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
+	if (UTCharOwner && !UTCharOwner->HeadIsUnderWater())
+	{
+		FHitResult UpHit(1.f);
+		SafeMoveUpdatedComponent(FVector(0.f, 0.f, OutofWaterZ*DeltaTime) - Hit.Normal * 20.f*DeltaTime, UpdatedComponent->GetComponentQuat(), true, UpHit);
+		Velocity.Z = OutofWaterZ;
+	}
+}
+
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
 {
 	if (Velocity.Size() > MaxWaterSpeed)
