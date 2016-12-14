@@ -1580,6 +1580,9 @@ protected:
 	/** @note Movement update functions should only be called through StartNewPhysics()*/
 	virtual void PhysCustom(float deltaTime, int32 Iterations);
 
+	/* Allow custom handling when character hits a wall while swimming. */
+	virtual void HandleSwimmingWallHit(const FHitResult& Hit);
+
 	/**
 	 * Compute a vector of movement, given a delta and a hit result of the surface we are on.
 	 *
