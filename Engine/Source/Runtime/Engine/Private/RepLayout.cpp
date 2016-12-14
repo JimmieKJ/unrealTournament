@@ -553,6 +553,14 @@ bool FRepLayout::ReplicateProperties(
 
 	FRepChangedPropertyTracker*	ChangeTracker = RepState->RepChangedPropertyTracker.Get();
 
+	// Rebuild conditional state if needed
+	if (RepState->RepFlags.Value != RepFlags.Value)
+	{
+		RebuildConditionalProperties(RepState, *ChangeTracker, RepFlags);
+
+		RepState->RepFlags.Value = RepFlags.Value;
+	}
+
 	if ( OwningChannel->Connection->bResendAllDataSinceOpen )
 	{
 		check( OwningChannel->Connection->InternalAck );
