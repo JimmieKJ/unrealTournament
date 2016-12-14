@@ -465,11 +465,11 @@ void SUTInGameMenu::ShowHomePanel()
 		{
 			if (PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>())
 			{
-				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBack", "Are you sure you want to leave the hub and return to the main menu?");
+				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBack", "Are you sure you want to leave the hub and return to the main menu? If you are in a party, you will leave your current party.");
 			}
 			else
 			{
-				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackDefault", "Are you sure you want to leave the game and return to the main menu?");
+				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackDefault", "Are you sure you want to leave the game and return to the main menu? If you are in a party, you will leave your current party.");
 			}
 		}
 
