@@ -265,6 +265,7 @@ void FUTAnalytics::SetInitialParameters(AUTPlayerController* UTPC, TArray<FAnaly
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), MapName));
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Platform), GetPlatform()));
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::Team), Team));
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::GameModeName), GetGameModeName(UTPC)));
 	}
 }
 
@@ -417,6 +418,7 @@ FString FUTAnalytics::GetGameModeName(AUTPlayerController* UTPC)
 * @Type Sent by client
 *
 * @EventParam MapName string The name of the played map
+* @EventParam GameModeName string The name of the currently played game mode
 * @EventParam PlaylistId int32 The playlist of the current match (4=PvP, 5=Coop, 6=Solo)
 * @EventParam Bucket_%i_%i_TimePercentage float The percentage of time that the FPS amount was between x - y
 * @EventParam Hitch_%i_%i_HitchCount int32 The number of hitches between x - y milliseconds long
@@ -501,6 +503,7 @@ void FUTAnalytics::FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnal
 * @Type Sent by the server for the match
 *
 * @EventParam MapName string The name of the played map
+* @EventParam GameModeName string The name of the currently played game mode
 * @EventParam Bucket_%i_%i_TimePercentage float The percentage of time that the FPS amount was between x - y
 * @EventParam Hitch_%i_%i_HitchCount int32 The number of hitches between x - y milliseconds long
 * @EventParam Hitch_%i_%i_HitchTime float The time spent in hitchy frames that lasted between x - y milliseconds long
