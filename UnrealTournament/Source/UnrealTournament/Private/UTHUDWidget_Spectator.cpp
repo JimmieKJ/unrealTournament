@@ -64,16 +64,16 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
-		DrawText(ViewingMessage, TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+		YOffset = -14.f;
+		DrawText(ViewingMessage, TextPosition, YOffset, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
+		YOffset = -4.f;
 	}
 	else
 	{
 		bMaintainAspectRatio = true;
 
-		// Draw the Logo
+		// Draw the Logo and spacer bar
 		DrawTexture(UTHUDOwner->ScoreboardAtlas, 20, 27.f, 150.5f, 49.f, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
-
-		// Draw the Spacer Bar
 		DrawTexture(UTHUDOwner->ScoreboardAtlas, 190.5f, 27.f, 4.f, 49.5f, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
 	DrawText(SimpleMessage, TextPosition, YOffset + 20.f, UTHUDOwner->MediumFont, 1.f, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
