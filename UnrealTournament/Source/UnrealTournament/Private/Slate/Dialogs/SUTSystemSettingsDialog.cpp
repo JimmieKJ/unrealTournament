@@ -1291,13 +1291,13 @@ FReply SUTSystemSettingsDialog::OKClick()
 	int32 NewScreenPercentage = FMath::TruncToInt(ScreenPercentageSlider->GetValue() * (ScreenPercentageRange.Y - ScreenPercentageRange.X) + ScreenPercentageRange.X) / 5 * 5;
 	UserSettings->SetScreenPercentage(NewScreenPercentage);
 
+	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
+	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	const TCHAR* Cmd = *SelectedRes->GetText().ToString();
 	int32 X=FCString::Atoi(Cmd);
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
-	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
-	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SetKeyboardLightingEnabled(KeyboardLightingCheckbox->IsChecked());
 	UserSettings->RequestResolutionChange(X, Y, EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
