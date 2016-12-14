@@ -581,7 +581,6 @@
     <xs:attribute name="BaseVersion" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="PatchVersion" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="FinalVersion" type="tns:BalancedStringType" use="required" />
-    <xs:attribute name="Platform" type="tns:MCPPlatformUserType" use="required" />
     <xs:attribute name="CloudDir" type="tns:BalancedStringType" use="required" />
     <xs:attribute name="If" type="tns:BalancedStringType" use="optional" />
   </xs:complexType>
