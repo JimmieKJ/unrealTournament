@@ -44,6 +44,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 		int32 ReplicatedCountdown;
 
 	UPROPERTY(BlueprintReadOnly, Category = RallyPoint)
+		float ClientCountdown;
+
+	UPROPERTY(BlueprintReadOnly, Category = RallyPoint)
 		float RallyTimeRemaining;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRallyTimeRemaining, Category = RallyPoint)

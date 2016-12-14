@@ -1134,7 +1134,8 @@ void AUTFlagRunGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
 {
 	Super::HandleRollingAttackerRespawn(OtherPS);
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS && !GS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > OtherPS->NextRallyTime) && GS->bHaveEstablishedFlagRunner && !GS->CurrentRallyPoint)
+	int32 RoundTime = (TimeLimit == 0) ? 300 : TimeLimit;
+	if (GS && !GS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > OtherPS->NextRallyTime) && GS->bHaveEstablishedFlagRunner && !GS->CurrentRallyPoint && (GS->GetRemainingTime() < RoundTime - 30))
 	{
 		OtherPS->AnnounceStatus(StatusMessage::NeedRally);
 	}

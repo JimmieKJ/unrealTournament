@@ -11,6 +11,9 @@
 #include "UTDefensePoint.h"
 #include "UTCTFGameMessage.h"
 #include "UTFlagRunGameMessage.h"
+#include "UTPickupHealth.h"
+#include "UTPickupMessage.h"
+#include "UTHUDWidget_WeaponCrosshair.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -239,6 +242,7 @@ void AUTRallyPoint::StartRallyCharging()
 	}
 	RallyReadyCountdown = RallyReadyDelay;
 	ReplicatedCountdown = RallyReadyCountdown;
+	ClientCountdown = ReplicatedCountdown;
 	SetRallyPointState(RallyPointStates::Charging);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -407,6 +411,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 		}
 		if (RallyPointState == RallyPointStates::Charging)
 		{
+			ClientCountdown = RallyReadyCountdown;
 			SetAmbientSound(PoweringUpSound, false);
 			ChangeAmbientSoundPitch(PoweringUpSound, 0.5f);
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FCTouchedSound, this, SRT_All);
@@ -494,6 +499,7 @@ void AUTRallyPoint::OnRallyTimeRemaining()
 void AUTRallyPoint::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	ClientCountdown -= DeltaTime;
 	if (bIsEnabled && (Role == ROLE_Authority))
 	{
 		AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
@@ -553,6 +559,11 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						if (NearbyFC->Health < NearbyFC->HealthMax)
 						{
 							NearbyFC->Health += FMath::Min(50, NearbyFC->HealthMax - NearbyFC->Health);
+							AUTPlayerController* FCPC = Cast<AUTPlayerController>(NearbyFC->GetController());
+							if (FCPC)
+							{
+								FCPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, AUTPickupHealth::StaticClass());
+							}
 						}
 						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyPoweredComplete, MinimumRallyTime, false);
 						if (GetNetMode() != NM_DedicatedServer)
@@ -774,8 +785,40 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 		{
 			return;
 		}
-		if (UTGS->CurrentRallyPoint && UTGS->CurrentRallyPoint->TouchingFC)
+		if (RallyPointState == RallyPointStates::Charging)
 		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+			if (UTPC && UTPC->MyUTHUD)
+			{
+				float Width = 150.f;
+				float Height = 21.f;
+				float WidthScale = Canvas->ClipX / 1920.f;;
+				float HeightScale = WidthScale;
+				WidthScale *= 0.75f;
+				FLinearColor ChargeColor = FLinearColor::White;
+				float ChargePct = FMath::Clamp((RallyReadyDelay - ClientCountdown) / RallyReadyDelay, 0.f, 1.f);
+				UTexture* Texture = UTPC->MyUTHUD->HUDAtlas;
+
+				FVector2D RenderPos = FVector2D(0.5f*Canvas->ClipX - (0.5f*Width), 0.4f*Canvas->ClipY - (0.5f*Height));
+
+				float U = 127.f / Texture->Resource->GetSizeX();
+				float V = 641.f / Texture->Resource->GetSizeY();
+				float UL = U + (Width*ChargePct / Texture->Resource->GetSizeX());
+				float VL = V + (Height / Texture->Resource->GetSizeY());
+				FLinearColor DrawColor = FLinearColor::White;
+				DrawColor.A = 0.8f;
+
+				FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width*ChargePct, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
+				ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+				Canvas->DrawItem(ImageItem);
+
+				V = 612.f / Texture->Resource->GetSizeY();
+				UL = U + (Width / Texture->Resource->GetSizeX());
+				VL = V + (Height / Texture->Resource->GetSizeY());
+				FCanvasTileItem ImageItemB(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
+				ImageItemB.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+				Canvas->DrawItem(ImageItemB);
+			}
 			return;
 		}
 	}
