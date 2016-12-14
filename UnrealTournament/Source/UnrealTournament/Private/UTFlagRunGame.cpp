@@ -494,7 +494,7 @@ float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryTyp
 	if (WeaponDefault)
 	{
 		int32 RoundTime = (TimeLimit == 0) ? 300 : TimeLimit;
-		return WeaponDefault->bMustBeHolstered ? FMath::Max(0.5f*(RoundTime +15.f), RoundTime - 120.f) : 20.f;
+		return WeaponDefault->bMustBeHolstered ? FMath::Max(20.f, RoundTime - 120.f) : 20.f;
 	}
 	return InventoryType.GetDefaultObject()->RespawnTime;
 }
