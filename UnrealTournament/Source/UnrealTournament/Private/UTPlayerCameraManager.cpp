@@ -71,6 +71,13 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 	static const FName NAME_Default = FName(TEXT("Default"));
+	static const FName NAME_LineUpCam = FName(TEXT("LineUpCam"));
+
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->LineUpHelper && GameState->LineUpHelper->bIsActive)
+	{
+		return NAME_LineUpCam;
+	}
 
 	AActor* CurrentViewTarget = GetViewTarget();
 	ACameraActor* CameraActor = Cast<ACameraActor>(CurrentViewTarget);
@@ -89,8 +96,9 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 		// force third person if target is dead, ragdoll or emoting
 		return NAME_FreeCam;
 	}
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+
 	return (GameState != NULL) ? GameState->OverrideCameraStyle(PCOwner, CameraStyle) : CameraStyle;
+
 }
 
 void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
@@ -170,6 +178,39 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = (CameraStyle == NAME_RallyCam) ? NAME_RallyCam : GetCameraStyleWithOverrides();
 
+	//if we have a line up active, change our ViewTarget to be the line-up target and setup camera settings
+	if (CameraStyle == NAME_LineUpCam)
+	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+
+		OutVT.POV.FOV = DefaultFOV;
+		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
+		OutVT.POV.bConstrainAspectRatio = false;
+		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		OutVT.POV.PostProcessBlendWeight = 1.0f;
+
+		if (GameState && GameState->LineUpHelper)
+		{
+			AActor* LineUpCam = GameState->LineUpHelper->GetCameraActorForLineUp(GetWorld(), GameState->LineUpHelper->LastActiveType);
+			if (LineUpCam)
+			{
+				OutVT.Target = LineUpCam;
+			}
+
+			OutVT.POV.Location = LineUpCam->GetActorLocation();
+			OutVT.POV.Rotation = LineUpCam->GetActorRotation();
+		}
+		else
+		{
+			OutVT.POV.Location = PCOwner->GetFocalLocation();
+			OutVT.POV.Rotation = PCOwner->GetControlRotation();
+		}
+		ApplyCameraModifiers(DeltaTime, OutVT.POV);
+
+		// Synchronize the actor with the view target results
+		SetActorLocationAndRotation(OutVT.POV.Location, OutVT.POV.Rotation, false);
+	}
+	
 	// smooth third person camera all the time
 	if (OutVT.Target == PCOwner)
 	{
@@ -200,32 +241,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			OutVT.POV.Location = UTPC->UTPlayerState->RallyLocation;
 			OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
-		}
-		else
-		{
-			OutVT.POV.Location = PCOwner->GetFocalLocation();
-			OutVT.POV.Rotation = PCOwner->GetControlRotation();
-		}
-		ApplyCameraModifiers(DeltaTime, OutVT.POV);
-
-		// Synchronize the actor with the view target results
-		SetActorLocationAndRotation(OutVT.POV.Location, OutVT.POV.Rotation, false);
-	}
-	else if (CameraStyle == NAME_LineUpCam)
-	{
-		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		
-		OutVT.POV.FOV = DefaultFOV;
-		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
-		OutVT.POV.bConstrainAspectRatio = false;
-		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
-		OutVT.POV.PostProcessBlendWeight = 1.0f;
-
-		if (GameState && GameState->LineUpHelper)
-		{
-			AActor* LineUpCam = GameState->LineUpHelper->GetCameraActorForLineUp(GetWorld(), GameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld()));
-			OutVT.POV.Location = LineUpCam->GetActorLocation();
-			OutVT.POV.Rotation = LineUpCam->GetActorRotation();
 		}
 		else
 		{

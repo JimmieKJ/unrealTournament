@@ -1084,7 +1084,11 @@ void AUTGameState::OnWinnerReceived()
 
 FName AUTGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
-	if (HasMatchEnded())
+	if (LineUpHelper && LineUpHelper->bIsActive)
+	{
+		return FName(TEXT("LineUpCam"));
+	}
+	else if (HasMatchEnded())
 	{
 		return FName(TEXT("FreeCam"));
 	}

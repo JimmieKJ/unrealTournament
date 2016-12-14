@@ -7,6 +7,7 @@
 #include "StatNames.h"
 #include "UTGameVolume.h"
 #include "UTCTFMajorMessage.h"
+#include "UTLineUpHelper.h"
 
 AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -238,7 +239,14 @@ bool AUTCTFGameState::IsMatchIntermission() const
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
-	return (IsMatchIntermission() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
+	if (LineUpHelper && LineUpHelper->bIsActive)
+	{
+		return FName(TEXT("LineUpCam"));
+	}
+	else
+	{
+		return (IsMatchIntermission() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
+	}
 }
 
 void AUTCTFGameState::OnIntermissionChanged()

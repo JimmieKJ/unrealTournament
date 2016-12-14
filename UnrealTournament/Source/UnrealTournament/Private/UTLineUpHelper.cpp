@@ -234,7 +234,7 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 				AUTPlayerController* UTPC = Cast<AUTPlayerController>(C);
 				if (UTPC)
 				{
-					//UTPC->SetCameraMode(NAME_LineUpCam);
+					UTPC->SetCameraMode(NAME_LineUpCam);
 					UTPC->ClientSetActiveLineUp(true, ZoneType);
 				}
 			}

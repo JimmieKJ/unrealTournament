@@ -288,9 +288,6 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
 
-	UFUNCTION(client,reliable)
-	virtual void ClientSetLineUpCamera(UWorld* World, LineUpTypes IntroType);
-
 	UFUNCTION(client, reliable)
 	virtual void ClientPrepareForLineUp();
 

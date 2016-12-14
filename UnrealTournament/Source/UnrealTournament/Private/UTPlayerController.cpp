@@ -2986,17 +2986,6 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		NewViewTarget = FinalViewTarget;
 	}
 	
-	// Cancel this if we have an active line up, and go through the line up code to end up setting view target
-	if (GetWorld())
-	{
-		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
-		if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive && (UTGS->GetMatchState() != MatchState::WaitingPostMatch) && (NewViewTarget != AUTLineUpHelper::GetCameraActorForLineUp(GetWorld(), UTGS->LineUpHelper->LastActiveType)))
-		{
-			ClientSetActiveLineUp(true, UTGS->LineUpHelper->LastActiveType);
-			return;
-		}
-	}
-	
 	AActor* OldViewTarget = GetViewTarget();
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
@@ -5297,23 +5286,6 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	}
 }
 
-void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, LineUpTypes IntroType)
-{
-	AActor* Camera = AUTLineUpHelper::GetCameraActorForLineUp(World, IntroType);
-	if (Camera)
-	{
-		FViewTargetTransitionParams TransitionParams;
-		TransitionParams.BlendFunction = EViewTargetBlendFunction::VTBlend_Linear;
-
-		if (World->GetGameState<AUTGameState>() && World->GetGameState<AUTGameState>()->GetMatchState() == MatchState::WaitingPostMatch)
-		{
-			FinalViewTarget = Camera;
-		}
-
-		SetViewTarget(Camera, TransitionParams);
-	}
-}
-
 void AUTPlayerController::ClientPrepareForLineUp_Implementation()
 {
 	FlushPressedKeys();
@@ -5362,8 +5334,6 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 
 			if (bNewIsActive)
 			{
-				ClientSetLineUpCamera(GetWorld(), LastType);
-
 				SetIgnoreLookInput(true);
 				ToggleScoreboard(false);
 
