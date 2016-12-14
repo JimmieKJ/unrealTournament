@@ -1581,7 +1581,7 @@ protected:
 	virtual void PhysCustom(float deltaTime, int32 Iterations);
 
 	/* Allow custom handling when character hits a wall while swimming. */
-	virtual void HandleSwimmingWallHit(const FHitResult& Hit);
+	virtual void HandleSwimmingWallHit(const FHitResult& Hit, float DeltaTime);
 
 	/**
 	 * Compute a vector of movement, given a delta and a hit result of the surface we are on.
