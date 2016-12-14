@@ -1143,7 +1143,7 @@ void APlayerController::ClientReset_Implementation()
 	ResetCameraMode();
 	SetViewTarget(this);
 
-	bPlayerIsWaiting = !PlayerState->bOnlySpectator;
+	bPlayerIsWaiting = (PlayerState == nullptr) || !PlayerState->bOnlySpectator;
 	ChangeState(NAME_Spectating);
 }
 
