@@ -33,7 +33,7 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	SilverBonusColor = FLinearColor(0.5f, 0.5f, 0.75f);
 	BronzeBonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
 	bEnemyRallyPointIdentified = false;
-
+	EarlyEndTime = 0;
 	bTeamGame = true;
 }
 
@@ -382,4 +382,11 @@ bool AUTFlagRunGameState::IsTeamOnDefenseNextRound(int32 TeamNumber) const
 {
 	//We alternate teams, so if we are on offense now, next round we will be on defense
 	return IsTeamOnOffense(TeamNumber);
+}
+
+void AUTFlagRunGameState::CheckTimerMessage()
+{
+	RemainingTime -= EarlyEndTime;
+	Super::CheckTimerMessage();
+	RemainingTime += EarlyEndTime;
 }

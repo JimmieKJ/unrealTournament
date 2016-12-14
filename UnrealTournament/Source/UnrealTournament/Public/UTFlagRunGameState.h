@@ -46,6 +46,10 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY()
 		FLinearColor BronzeBonusColor;
 
+	// Early ending time for this round
+	UPROPERTY()
+		int32 EarlyEndTime;
+
 	UPROPERTY(Replicated)
 		bool bAttackersCanRally;
 
@@ -92,6 +96,8 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	virtual void BeginPlay() override;
 
 	virtual void UpdateSelectablePowerups();
+
+	virtual void CheckTimerMessage() override;
 
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const override;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const override;

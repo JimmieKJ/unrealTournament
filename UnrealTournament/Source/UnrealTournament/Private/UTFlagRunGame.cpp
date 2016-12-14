@@ -45,6 +45,8 @@
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	NumRounds = 2;
+
 	MinPlayersToStart = 10;
 	GoldBonusTime = 120;
 	SilverBonusTime = 60;
@@ -226,6 +228,11 @@ void AUTFlagRunGame::CheckRoundTimeVictory()
 	{
 		// Round is over, defense wins.
 		ScoreAlternateWin((FRGS && FRGS->bRedToCap) ? 1 : 0, 1);
+	}
+	else if (RemainingTime - FRGS->EarlyEndTime <= 0)
+	{
+		// Round is over, defense wins.
+		ScoreAlternateWin((FRGS && FRGS->bRedToCap) ? 1 : 0, 2);
 	}
 	else
 	{
@@ -832,6 +839,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 	int32 RequiredTime = (GS->bRedToCap == GS->IsMatchIntermission()) ? GS->TiebreakValue : -1 * GS->TiebreakValue;
 	RequiredTime = FMath::Max(RequiredTime, 0);
 	GS->FlagRunMessageTeam = nullptr;
+	GS->EarlyEndTime = 0;
 	if (GS->CTFRound == GS->NumRounds - 2)
 	{
 		if (NextAttacker->Score > NextDefender->Score)
@@ -860,6 +868,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 			}
 			BonusType = FMath::Min(BonusType, 3);
 			GS->FlagRunMessageSwitch = 100 * RequiredTime + BonusType + 3;
+			GS->EarlyEndTime = 60 * (BonusType - 1) + RequiredTime;
 		}
 	}
 	else if (GS->CTFRound == GS->NumRounds - 1)
@@ -879,6 +888,7 @@ void AUTFlagRunGame::HandleMatchIntermission()
 				RequiredTime = 0;
 			}
 			GS->FlagRunMessageSwitch = 7 + BonusType + 100 * RequiredTime;
+			GS->EarlyEndTime = 60 * (BonusType - 1) + RequiredTime;
 		}
 	}
 }

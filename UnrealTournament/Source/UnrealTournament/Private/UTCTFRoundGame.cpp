@@ -1199,7 +1199,10 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 	AUTTeamInfo* WinningTeam = (Teams.Num() > WinningTeamIndex) ? Teams[WinningTeamIndex] : NULL;
 	if (WinningTeam)
 	{
-		WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : GetDefenseScore();
+		if (Reason != 2)
+		{
+			WinningTeam->Score += IsTeamOnOffense(WinningTeamIndex) ? GetFlagCapScore() : GetDefenseScore();
+		}
 		if (CTFGameState)
 		{
 			for (int32 i = 0; i < Teams.Num(); i++)
@@ -1209,8 +1212,11 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 					Teams[i]->RoundBonus = 0;
 				}
 			}
-			WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
-			UpdateTiebreak(WinningTeam->RoundBonus, WinningTeam->TeamIndex);
+			if (Reason != 2)
+			{
+				WinningTeam->RoundBonus = FMath::Min(MaxTimeScoreBonus, CTFGameState->GetRemainingTime());
+				UpdateTiebreak(WinningTeam->RoundBonus, WinningTeam->TeamIndex);
+			}
 
 			FCTFScoringPlay NewScoringPlay;
 			NewScoringPlay.Team = WinningTeam;
