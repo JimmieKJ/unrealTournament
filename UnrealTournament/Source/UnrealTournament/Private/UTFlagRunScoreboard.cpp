@@ -530,7 +530,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		{
 			// draw scoring plays
 			float ScoreWidth = 0.8f*MapSize;
-			float MaxHeight = GS->CTFRound * 0.072f * Canvas->ClipY;
+			float MaxHeight = (0.05f + GS->CTFRound * 0.058f) * Canvas->ClipY;
 			float PageBottom = LeftCorner.Y + MaxHeight;
 			FLinearColor PageColor = FLinearColor::Black;
 			PageColor.A = 0.5f;
