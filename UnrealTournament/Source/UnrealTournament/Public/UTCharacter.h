@@ -790,6 +790,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	virtual void TargetedBy(APawn* Targeter, AUTPlayerState* PS);
 
+	virtual void FlagPingedBy(AUTPlayerState* PS);
+
+
 	/** Last time this character targeted or hit  an enemy. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
 		bool bIsInCombat;

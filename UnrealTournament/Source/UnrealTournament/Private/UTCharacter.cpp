@@ -1234,46 +1234,46 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 		// check blood effects
 		if (!bPlayedArmorEffect && LastTakeHitInfo.Damage > 0 && (UTDmg == NULL || UTDmg.GetDefaultObject()->bCausesBlood)) 
 		{
-			bool bRecentlyRendered = GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f;
-			// TODO: gore setting check
-			if (bRecentlyRendered && BloodEffects.Num() > 0)
-			{
-				UParticleSystem* Blood = BloodEffects[FMath::RandHelper(BloodEffects.Num())];
-				if (Blood != NULL)
-				{
-					// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
-					UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
-					PSC->bAutoDestroy = true;
-					PSC->SecondsBeforeInactive = 0.0f;
-					PSC->bAutoActivate = false;
-					PSC->SetTemplate(Blood);
-					PSC->bOverrideLODMethod = false;
-					PSC->RegisterComponentWithWorld(GetWorld());
-					PSC->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
-					PSC->SetAbsolute(true, true, true);
-					PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
-					PSC->SetRelativeScale3D(bPlayedArmorEffect ? FVector(0.7f) : FVector(1.f));
-					PSC->ActivateSystem(true);
-				}
-			}
-			// spawn decal
-			bool bSpawnDecal = bRecentlyRendered;
-			if (!bSpawnDecal)
-			{
-				// spawn blood decals for player locally viewed even in first person mode
-				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
-				{
-					if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
-					{
-						bSpawnDecal = true;
-						break;
-					}
-				}
-			}
-			if (bSpawnDecal)
-			{
-				SpawnBloodDecal(LastTakeHitInfo.RelHitLocation + GetActorLocation(), FRotator(FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirPitch), FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirYaw), 0.0f).Vector());
-			}
+bool bRecentlyRendered = GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f;
+// TODO: gore setting check
+if (bRecentlyRendered && BloodEffects.Num() > 0)
+{
+	UParticleSystem* Blood = BloodEffects[FMath::RandHelper(BloodEffects.Num())];
+	if (Blood != NULL)
+	{
+		// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
+		UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
+		PSC->bAutoDestroy = true;
+		PSC->SecondsBeforeInactive = 0.0f;
+		PSC->bAutoActivate = false;
+		PSC->SetTemplate(Blood);
+		PSC->bOverrideLODMethod = false;
+		PSC->RegisterComponentWithWorld(GetWorld());
+		PSC->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform);
+		PSC->SetAbsolute(true, true, true);
+		PSC->SetWorldLocationAndRotation(LastTakeHitInfo.RelHitLocation + GetActorLocation(), LastTakeHitInfo.RelHitLocation.Rotation());
+		PSC->SetRelativeScale3D(bPlayedArmorEffect ? FVector(0.7f) : FVector(1.f));
+		PSC->ActivateSystem(true);
+	}
+}
+// spawn decal
+bool bSpawnDecal = bRecentlyRendered;
+if (!bSpawnDecal)
+{
+	// spawn blood decals for player locally viewed even in first person mode
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+		{
+			bSpawnDecal = true;
+			break;
+		}
+	}
+}
+if (bSpawnDecal)
+{
+	SpawnBloodDecal(LastTakeHitInfo.RelHitLocation + GetActorLocation(), FRotator(FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirPitch), FRotator::DecompressAxisFromByte(LastTakeHitInfo.ShotDirYaw), 0.0f).Vector());
+}
 		}
 	}
 }
@@ -1318,6 +1318,35 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 #endif
 }
 
+void AUTCharacter::FlagPingedBy(AUTPlayerState* PS)
+{
+	AUTCarriedObject* Flag = GetCarriedObject();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+	float MinTimeForVerbal = (GV && GS && (GV->VoiceLinesSet != GS->LastEnemyLocationName)) ? 0.f : 6.f;
+	if (PS && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > MinTimeForVerbal) && !Flag->bCurrentlyPinged)
+	{
+		if (GS)
+		{
+			GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+		}
+		if (GV && (GV->VoiceLinesSet != NAME_None))
+		{
+			PS->AnnounceStatus(GV->VoiceLinesSet, 0);
+			GS->LastEnemyLocationName = GV->VoiceLinesSet;
+			if (GS && GS->CurrentRallyPoint)
+			{
+				GS->CurrentRallyPoint->WarnEnemyRally();
+			}
+		}
+		else
+		{
+			PS->AnnounceStatus(StatusMessage::EnemyFCHere);
+		}
+	}
+	Flag->LastPinger = PS ? PS : Flag->LastPinger;
+}
+
 void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 {
 	AUTCharacter* TargeterChar = Cast<AUTCharacter>(Targeter);
@@ -1326,6 +1355,19 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 		TargeterChar->LastTarget = this;
 		TargeterChar->LastTargetingTime = GetWorld()->GetTimeSeconds();
 		TargeterChar->bHaveTargetVisual = true;
+		AUTCarriedObject* TargeterFlag = TargeterChar->GetCarriedObject();
+		if (TargeterFlag && TargeterFlag->bShouldPingFlag && GetController() && Cast<AUTPlayerState>(PlayerState))
+		{
+			// ping the flag carrier if victim is looking at him
+			FVector ViewDir = GetController()->GetControlRotation().Vector();
+			FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+			if (((ViewDir | EnemyDir) > 0.7f) && GetController()->LineOfSightTo(TargeterChar))
+			{
+				TargeterChar->FlagPingedBy(Cast<AUTPlayerState>(PlayerState));
+				TargeterChar->LastTargeter = Cast<AUTPlayerState>(PlayerState);
+				TargeterChar->LastTargetSeenTime = GetWorld()->GetTimeSeconds();
+			}
+		}
 	}
 	if ((LastTargetedTime == GetWorld()->GetTimeSeconds()) && (PS == LastTargeter))
 	{
@@ -1339,32 +1381,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 	AUTCarriedObject* Flag = GetCarriedObject();
 	if (Flag && Flag->bShouldPingFlag)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-		float MinTimeForVerbal = (GV && GS && (GV->VoiceLinesSet != GS->LastEnemyLocationName)) ? 0.f : 6.f;
-
-		if (PS && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > MinTimeForVerbal) && !Flag->bCurrentlyPinged)
-		{
-			if (GS)
-			{
-				GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
-			}
-			if (GV && (GV->VoiceLinesSet != NAME_None))
-			{
-				PS->AnnounceStatus(GV->VoiceLinesSet, 0);
-				GS->LastEnemyLocationName = GV->VoiceLinesSet;
-				AUTFlagRunGameState* FlagrunGS = Cast<AUTFlagRunGameState>(GS);
-				if (FlagrunGS && FlagrunGS->CurrentRallyPoint)
-				{
-					FlagrunGS->CurrentRallyPoint->WarnEnemyRally();
-				}
-			}
-			else
-			{
-				PS->AnnounceStatus(StatusMessage::EnemyFCHere);
-			}
-		}
-		Flag->LastPinger = PS ? PS : Flag->LastPinger;
+		FlagPingedBy(PS);
 	}
 
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
