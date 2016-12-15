@@ -34,7 +34,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1", "* You are defending.  Your goal is to keep the enemy from"));
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1b", "  bringing the flag to your base, and not run out of lives."));
 	DefendLines.Add(FText::GetEmpty());
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine2", "* You have five lives.  The attackers do not have a life limit."));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine2", "* You have 5 lives.  The attackers do not have a life limit."));
 	DefendLines.Add(FText::GetEmpty());
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly"));
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  they score."));
@@ -48,7 +48,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1", "* You are attacking.  Your goal is to deliver your flag as"));
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1b", "  fast as possible to the enemy base, or exhaust their lives."));
 	AttackLines.Add(FText::GetEmpty());
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine2", "* Defenders have five lives.  You do not have a life limit."));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine2", "* Defenders have 5 lives.  You do not have a life limit."));
 	AttackLines.Add(FText::GetEmpty());
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly"));
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  they score."));

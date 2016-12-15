@@ -45,8 +45,6 @@
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	NumRounds = 2;
-
 	MinPlayersToStart = 10;
 	GoldBonusTime = 120;
 	SilverBonusTime = 60;

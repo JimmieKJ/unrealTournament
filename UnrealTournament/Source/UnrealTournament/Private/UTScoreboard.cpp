@@ -177,7 +177,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	}
 	else
 	{
-		MessageX = UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, 220.f*RenderScale, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, true);
+		MessageX = UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, 220.f*RenderScale, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, true, true);
 	}
 
 	// Draw the Background
@@ -190,7 +190,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	}
 	else
 	{
-		UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, 220.f*RenderScale, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, false);
+		UTHUDOwner->DrawWinConditions(UTHUDOwner->MediumFont, LeftEdge, YOffset + 4.f*RenderScale, Canvas->ClipX, RenderScale, false);
 	}
 
 	DrawGameOptions(RenderDelta, YOffset, RenderSize.X - LeftEdge);
