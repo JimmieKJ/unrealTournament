@@ -113,7 +113,14 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 		
 			if (FlagHolder)
 			{
-				FlagHolderNameTemplate.Text = ((FlagHolder == UTHUDOwner->UTPlayerOwner->UTPlayerState) && !bAlwaysDrawFlagHolderName) ? YouHaveFlagText : FText::FromString(FlagHolder->PlayerName);
+				if (bAlwaysDrawFlagHolderName)
+				{
+					FlagHolderNameTemplate.Text = FText::FromString(FlagHolder->PlayerName);
+				}
+				else
+				{
+					FlagHolderNameTemplate.Text = (FlagHolder == UTHUDOwner->UTPlayerOwner->UTPlayerState) ? YouHaveFlagText : FText::GetEmpty();
+				}
 				RenderObj_Text(FlagHolderNameTemplate, IndicatorPosition);
 			}
 

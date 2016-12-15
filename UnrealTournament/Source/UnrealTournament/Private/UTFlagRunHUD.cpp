@@ -30,6 +30,7 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	AttackersMustScoreWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreWin", " to win.");
 	AttackersMustScoreTime = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTime", " with over {TimeNeeded}s bonus to have a chance.");
 	AttackersMustScoreTimeWin = NSLOCTEXT("UTFlagRun", "AttackersMustScoreTimeWin", " with over {TimeNeeded}s bonus to win.");
+	AttackersMustScoreShort = NSLOCTEXT("UTFlagRun", "AttackersMustScoreShort", " with over {TimeNeeded}s");
 
 	MustScoreText = NSLOCTEXT("UTTeamScoreboard", "MustScore", " must score ");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
@@ -81,7 +82,6 @@ void AUTFlagRunHUD::NotifyMatchStateChange()
 	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GetWorld()->GetGameState());
 	if (GS && GS->GetMatchState() == MatchState::InProgress && GS->FlagRunMessageTeam && UTPlayerOwner)
 	{
-		WinConditionMessageTime = 5.f;
 		ScoreMessageText = MustScoreText;
 	}
 	Super::NotifyMatchStateChange();
@@ -101,10 +101,11 @@ void AUTFlagRunHUD::DrawHUD()
 	bool bScoreboardIsUp = ScoreboardIsUp();
 	if (!bScoreboardIsUp && GS && GS->GetMatchState() == MatchState::InProgress)
 	{
-		if (GS->FlagRunMessageTeam && UTPlayerOwner && (WinConditionMessageTime > 0.f))
+		if (GS->FlagRunMessageTeam && UTPlayerOwner)
 		{
-			DrawWinConditions(MediumFont, 0.f, 0.2f*Canvas->ClipY, Canvas->ClipX, 1.f, true);
-			WinConditionMessageTime -= GetWorld()->DeltaTimeSeconds;
+			bUseShortWinMessage = true;
+			DrawWinConditions(TinyFont, 0.f, 0.07f*Canvas->ClipY, Canvas->ClipX, 1.f, true);
+			bUseShortWinMessage = false;
 		}
 
 		int32 OldRedCount = RedPlayerCount;
@@ -231,7 +232,6 @@ void AUTFlagRunHUD::DrawPlayerIcon(AUTPlayerState* PlayerState, float LiveScalin
 
 float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage, bool bSkipDrawing)
 {
-
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS && GS->HasMatchEnded())
 	{
@@ -261,6 +261,10 @@ float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos,
 			TimeNeeded = Switch / 100;
 			Switch = Switch - 100 * TimeNeeded;
 		}
+		if (bUseShortWinMessage && Switch < 4)
+		{
+			return 0.f;
+		}
 		FText PostfixText = FText::GetEmpty();
 		switch (Switch)
 		{
@@ -275,6 +279,10 @@ float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos,
 		case 9: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GS->SilverBonusText; BonusColor = GS->SilverBonusColor; break;
 		case 10: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GS->GoldBonusText; BonusColor = GS->GoldBonusColor; break;
 		}	
+		if (bUseShortWinMessage)
+		{
+			PostfixText = (TimeNeeded > 0) ? AttackersMustScoreShort : FText::GetEmpty();
+		}
 
 		if (Switch > 1)
 		{

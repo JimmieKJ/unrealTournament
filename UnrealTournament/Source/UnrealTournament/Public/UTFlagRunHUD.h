@@ -32,9 +32,6 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 	FCanvasIcon BlueTeamOverlay;
 
-	UPROPERTY()
-		float WinConditionMessageTime;
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText DefendersMustStop;
 
@@ -57,6 +54,9 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 		FText AttackersMustScoreTimeWin;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText AttackersMustScoreShort;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BlueTeamText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -64,6 +64,9 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText MustScoreText;
+
+	UPROPERTY()
+		bool bUseShortWinMessage;
 
 	int32 RedPlayerCount;
 	int32 BluePlayerCount;

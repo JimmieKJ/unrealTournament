@@ -41,7 +41,7 @@ void UUTHUDWidget_FlagRunStatus::DrawIndicators(AUTCTFGameState* GameState, FVec
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GameState->FlagBases[OffensiveTeam]->GetCarriedObject());
 			if (Flag && (Flag->ObjectState != CarriedObjectState::Delivered))
 			{
-				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, FVector2D(0.0f, 0.0f), GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
+				DrawFlagStatus(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, FVector2D(0.0f, 100.0f), GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
 				DrawFlagWorld(GameState, PlayerViewPoint, PlayerViewRotation, OffensiveTeam, GameState->FlagBases[OffensiveTeam], Flag, Flag->Holder);
 			}
 		}
