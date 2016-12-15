@@ -1297,11 +1297,12 @@ FReply SUTSystemSettingsDialog::OKClick()
 	int32 X=FCString::Atoi(Cmd);
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
-	UserSettings->SetScreenResolution(FIntPoint(X, Y));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SetKeyboardLightingEnabled(KeyboardLightingCheckbox->IsChecked());
-	UserSettings->RequestResolutionChange(X, Y, EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
+	UserSettings->SetScreenResolution(FIntPoint(X, Y));
 	UserSettings->SaveConfig();
+
+	UserSettings->ApplyResolutionSettings(false);
 
 	// Immediately change the vsync, UserSettings would do it, but it's in a function that we don't typically call
 	static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
