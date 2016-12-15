@@ -1232,6 +1232,9 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 #if ENABLE_DRAW_DEBUG
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 
+	Canvas->SetDrawColor(255, 255, 255);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("MoveTarget: %s[%s] - Focus: %s[%s]"), MoveTarget.Actor.IsValid() ? *MoveTarget.Actor->GetName() : TEXT(""), *MoveTarget.GetLocation(GetPawn()).ToString(), (GetFocusActor() != nullptr) ? *GetFocusActor()->GetName() : TEXT(""), *GetFocalPoint().ToString()), 4.0f, YPos);
+	YPos += YL;
 	Canvas->SetDrawColor(0, 255, 0);
 	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ORDERS: %s"), (Squad != nullptr) ? *Squad->GetCurrentOrders(this).ToString() : TEXT("NO SQUAD")), 4.0f, YPos);
 	YPos += YL;
