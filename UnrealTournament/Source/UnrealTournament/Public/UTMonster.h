@@ -24,7 +24,24 @@ public:
 	/** cost to spawn in the PvE game's point system */
 	UPROPERTY(EditDefaultsOnly)
 	int32 Cost;
+	/** optional item drop beyond any droppable inventory (note: must have a valid DroppedPickupClass) */
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<AUTInventory> ExtraDropType;
+	/** chance to drop */
+	UPROPERTY(EditDefaultsOnly)
+	float DropChance;
 
-	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data)
+	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data) override
 	{}
+
+	virtual void DiscardAllInventory() override
+	{
+		Super::DiscardAllInventory();
+
+		if (ExtraDropType != nullptr && FMath::FRand() < DropChance)
+		{
+			AUTInventory* Inv = CreateInventory<AUTInventory>(ExtraDropType, false);
+			TossInventory(Inv);
+		}
+	}
 };

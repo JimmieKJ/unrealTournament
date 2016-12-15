@@ -109,7 +109,7 @@ void AUTProj_BioShot::OnBounce(const struct FHitResult& ImpactResult, const FVec
 {
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 	ProjectileMovement->MaxSpeed = MaxSlideSpeed;
-	bCanTrack = true;
+	bCanTrack = TrackingRange > 0.0f;
 
 	// only one bounce sound
 	BounceSound = NULL;
