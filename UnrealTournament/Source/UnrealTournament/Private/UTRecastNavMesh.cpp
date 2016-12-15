@@ -693,6 +693,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 			{
 				if (Builder->IsDestinationOnly())
 				{
+					if (It->GetName() == TEXT("BaseJumpPad4_1184"))
+					{
+						int i = 3;
+					}
 					// we need to make sure to grab all encompassing polys into the new PathNode as it will have special properties
 					// and Recast may have split the polys inside the extent of the POI
 					const FVector UnrealCenter = It->GetActorLocation();
@@ -701,7 +705,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					RecastExtent = FVector(RecastExtent[0], RecastExtent[2], RecastExtent[1]);
 					TArray<NavNodeRef> FinalPolys;
 					{
-						NavNodeRef ResultPolys[10];
+						NavNodeRef ResultPolys[20];
 						int32 NumPolys = 0;
 						InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
 						if (NumPolys == 0)
@@ -823,47 +827,51 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 							i = Link.next;
 							if (InternalMesh->isValidPolyRef(Link.ref))
 							{
-								FCapsuleSize OtherSize = GetSteppedEdgeSize(PolyRef, PolyData, TileData, Link);
-								APhysicsVolume* OtherVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(Link.ref) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
+								UUTPathNode* DestNode = PolyToNode.FindRef(Link.ref);
 								// TODO: max distance between nodes? Maybe based on pct of mesh size?
-								if (!bOffMeshLink && OtherSize == Node->MinPolyEdgeSize && OtherVolume == Node->PhysicsVolume && !PolyToNode.Contains(Link.ref))
+								if (!bOffMeshLink && DestNode == nullptr)
 								{
-									ensure(!Node->Polys.Contains(Link.ref)); // should have ended up below if this is the case
-									// we only want one walk path connecting the same two pathnodes, so check this poly for other adjacent nodes
-									// if one is found such that this poly would create a second walk connection, put this poly in a new node instead
-									bool bAddedNode = false;
-									const dtPoly* NewPolyData = NULL;
-									const dtMeshTile* NewTileData = NULL;
-									InternalMesh->getTileAndPolyByRef(Link.ref, &NewTileData, &NewPolyData);
-									if (NewPolyData != NULL && NewTileData != NULL)
+									FCapsuleSize OtherSize = GetSteppedEdgeSize(PolyRef, PolyData, TileData, Link);
+									APhysicsVolume* OtherVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(Link.ref) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
+									if (OtherSize == Node->MinPolyEdgeSize && OtherVolume == Node->PhysicsVolume)
 									{
-										uint32 j = NewPolyData->firstLink;
-										while (j != DT_NULL_LINK && j < uint32(NewTileData->header->maxLinkCount))
+										ensure(!Node->Polys.Contains(Link.ref)); // should have ended up below if this is the case
+										// we only want one walk path connecting the same two pathnodes, so check this poly for other adjacent nodes
+										// if one is found such that this poly would create a second walk connection, put this poly in a new node instead
+										bool bAddedNode = false;
+										const dtPoly* NewPolyData = NULL;
+										const dtMeshTile* NewTileData = NULL;
+										InternalMesh->getTileAndPolyByRef(Link.ref, &NewTileData, &NewPolyData);
+										if (NewPolyData != NULL && NewTileData != NULL)
 										{
-											const dtLink& NewLink = InternalMesh->getLink(NewTileData, j);
-											j = NewLink.next;
-											UUTPathNode* TestNode = PolyToNode.FindRef(NewLink.ref);
-											if ( TestNode != NULL && TestNode != Node &&
-												(TestNode->Paths.ContainsByPredicate([Node](const FUTPathLink& TestItem) { return TestItem.End == Node; }) || Node->Paths.ContainsByPredicate([TestNode](const FUTPathLink& TestItem) { return TestItem.End == TestNode; })) )
+											uint32 j = NewPolyData->firstLink;
+											while (j != DT_NULL_LINK && j < uint32(NewTileData->header->maxLinkCount))
 											{
-												UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
-												NewNode->PhysicsVolume = OtherVolume;
-												PathNodes.Add(NewNode);
-												PolyToNode.Add(Link.ref, NewNode);
-												NewNode->Polys.Add(Link.ref);
-												NewNode->MinPolyEdgeSize = OtherSize;
+												const dtLink& NewLink = InternalMesh->getLink(NewTileData, j);
+												j = NewLink.next;
+												UUTPathNode* TestNode = PolyToNode.FindRef(NewLink.ref);
+												if ( TestNode != NULL && TestNode != Node &&
+													(TestNode->Paths.ContainsByPredicate([Node](const FUTPathLink& TestItem) { return TestItem.End == Node; }) || Node->Paths.ContainsByPredicate([TestNode](const FUTPathLink& TestItem) { return TestItem.End == TestNode; })) )
+												{
+													UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
+													NewNode->PhysicsVolume = OtherVolume;
+													PathNodes.Add(NewNode);
+													PolyToNode.Add(Link.ref, NewNode);
+													NewNode->Polys.Add(Link.ref);
+													NewNode->MinPolyEdgeSize = OtherSize;
 
-												bAddedNode = true;
-												break;
+													bAddedNode = true;
+													break;
+												}
 											}
 										}
+										if (!bAddedNode)
+										{
+											Node->Polys.Add(Link.ref);
+											PolyToNode.Add(Link.ref, Node);
+										}
+										bAnyNodeExpanded = true;
 									}
-									if (!bAddedNode)
-									{
-										Node->Polys.Add(Link.ref);
-										PolyToNode.Add(Link.ref, Node);
-									}
-									bAnyNodeExpanded = true;
 								}
 								else
 								{
@@ -872,7 +880,6 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 									if (Water == NULL || Water->WaterCurrentDirection.IsZero() || (Water->WaterCurrentDirection | (GetPolyCenter(Link.ref) - GetPolyCenter(PolyRef))) > 0.0f)
 									{
 										// create a path link to the neighboring tile
-										UUTPathNode* DestNode = PolyToNode.FindRef(Link.ref);
 										if (DestNode != NULL && DestNode != Node)
 										{
 											bool bFound = false;
