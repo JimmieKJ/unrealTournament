@@ -200,7 +200,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 {
 	if (!bLanded)
 	{
-		bCanTrack = true;
+		bCanTrack = (TrackingRange > 0.0f);
 		bLanded = true;
 		bCanHitInstigator = true;
 		InitialVisualOffset = FinalVisualOffset;
