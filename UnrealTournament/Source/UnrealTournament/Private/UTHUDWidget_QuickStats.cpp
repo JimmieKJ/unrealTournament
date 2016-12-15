@@ -353,7 +353,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (bPlayerCanRally || bShowTimer)
 			{
 				FlagInfo.IconColor = FLinearColor::Yellow;
-				FlagInfo.Label = UTHUDOwner->RallyLabel;
+				FlagInfo.Label = UTPlayerState->CarriedObject ? FText::GetEmpty() : UTHUDOwner->RallyLabel;
 			}
 			else
 			{

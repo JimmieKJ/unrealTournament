@@ -647,32 +647,21 @@ bool AUTFlagRunGame::HandleRallyRequest(AController* C)
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTTeamInfo* Team = UTPlayerState ? UTPlayerState->Team : nullptr;
-	if (Team && UTPlayerState->bCanRally && !GetWorldTimerManager().IsTimerActive(UTPlayerState->RallyTimerHandle) && GS->bAttackersCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
+	if (Team && !UTCharacter->GetCarriedObject() && GS->CurrentRallyPoint && UTPlayerState->bCanRally && !GetWorldTimerManager().IsTimerActive(UTPlayerState->RallyTimerHandle) && GS->bAttackersCanRally && UTCharacter && GS && IsMatchInProgress() && !GS->IsMatchIntermission() && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
-		if (UTCharacter->GetCarriedObject())
+		UTPlayerState->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+		UTPlayerState->RallyPoint = GS->CurrentRallyPoint;
+		UTCharacter->bTriggerRallyEffect = true;
+		UTCharacter->OnTriggerRallyEffect();
+		UTPlayerState->BeginRallyTo(UTPlayerState->RallyPoint, UTPlayerState->RallyLocation, 1.2f);
+		UTCharacter->SpawnRallyDestinationEffectAt(UTPlayerState->RallyLocation);
+		if (UTCharacter->UTCharacterMovement)
 		{
-			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 2.5f)
-			{
-				UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-				RallyRequestTime = GetWorld()->GetTimeSeconds();
-			}
+			UTCharacter->UTCharacterMovement->StopMovementImmediately();
+			UTCharacter->UTCharacterMovement->DisableMovement();
+			UTCharacter->DisallowWeaponFiring(true);
 		}
-		else if (GS->CurrentRallyPoint != nullptr)
-		{
-			UTPlayerState->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
-			UTPlayerState->RallyPoint = GS->CurrentRallyPoint;
-			UTCharacter->bTriggerRallyEffect = true;
-			UTCharacter->OnTriggerRallyEffect();
-			UTPlayerState->BeginRallyTo(UTPlayerState->RallyPoint, UTPlayerState->RallyLocation, 1.2f);
-			UTCharacter->SpawnRallyDestinationEffectAt(UTPlayerState->RallyLocation);
-			if (UTCharacter->UTCharacterMovement)
-			{
-				UTCharacter->UTCharacterMovement->StopMovementImmediately();
-				UTCharacter->UTCharacterMovement->DisableMovement();
-				UTCharacter->DisallowWeaponFiring(true);
-			}
-			return true;
-		}
+		return true;
 	}
 	return false;
 }

@@ -218,8 +218,11 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 		if (bPlayerCanRally)
 		{
-			FlagText.Text = UTHUDOwner->RallyLabel;
-			RenderObj_Text(FlagText);
+			if (!PS->CarriedObject)
+			{
+				FlagText.Text = UTHUDOwner->RallyLabel;
+				RenderObj_Text(FlagText);
+			}
 		}
 		else if (bShowTimer)
 		{
