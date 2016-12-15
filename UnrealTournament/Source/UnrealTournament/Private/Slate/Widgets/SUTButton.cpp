@@ -8,8 +8,12 @@
 
 #if !UE_SERVER
 
+const float SPRING_DURATION = 0.35f;
+
 void SUTButton::Construct(const FArguments& InArgs)
 {
+	SetRenderTransformPivot(FVector2D(0.5f,0.5f));
+
 	OnButtonClick = InArgs._UTOnButtonClicked;
 	OnMouseOver = InArgs._UTOnMouseOver;
 	WidgetTag = InArgs._WidgetTag;
@@ -21,6 +25,7 @@ void SUTButton::Construct(const FArguments& InArgs)
 	FocusTextColor = InArgs._TextFocusColor.Get();
 	PressedTextColor = InArgs._TextPressedColor.Get();
 	DisabledTextColor = InArgs._TextDisabledColor.Get();
+	bSpringButton = InArgs._bSpringButton;
 
 	if (InArgs._Text.IsSet())
 	{
@@ -228,6 +233,11 @@ void SUTButton::OnFocusLost( const FFocusEvent& InFocusEvent )
 
 void SUTButton::OnMouseLeave( const FPointerEvent& MouseEvent ) 
 {
+	if (bSpringButton)
+	{
+		SetRenderTransform(FSlateRenderTransform(1.0f));
+	}
+
 	if (bIsToggleButton)
 	{
 		// Call parent implementation
@@ -241,12 +251,18 @@ void SUTButton::OnMouseLeave( const FPointerEvent& MouseEvent )
 
 void SUTButton::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) 
 {
+	if (bSpringButton)
+	{
+		SetRenderTransform(FSlateRenderTransform(1.075f));
+	}
 	if (OnMouseOver.IsBound())
 	{
 		OnMouseOver.Execute(WidgetTag);
 	}
 	SButton::OnMouseEnter(MyGeometry, MouseEvent);
 }
+
+
 
 
 #endif

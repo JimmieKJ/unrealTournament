@@ -635,6 +635,7 @@ void SUTChallengePanel::GenerateChallengeList()
 			if (PlayerOwner->ChallengeRevisionNumber < ChallengeManager->RevisionNumber)
 			{
 				PlayerOwner->ChallengeRevisionNumber = ChallengeManager->RevisionNumber;
+				PlayerOwner->SaveConfig();
 			}
 		}
 

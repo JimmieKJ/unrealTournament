@@ -125,3 +125,16 @@ void UUTPlaylistManager::UpdatePlaylistFromMCP(int32 PlaylistId, FString InExtra
 		}
 	}
 }
+
+FName UUTPlaylistManager::GetPlaylistSlateBadge(int32 PlaylistId)
+{
+	for (FPlaylistItem& PlaylistEntry : Playlist)
+	{
+		if (PlaylistEntry.PlaylistId == PlaylistId && !PlaylistEntry.SlateBadgeName.IsEmpty() )
+		{
+			return FName(*PlaylistEntry.SlateBadgeName);
+		}
+	}
+
+	return NAME_None;
+}

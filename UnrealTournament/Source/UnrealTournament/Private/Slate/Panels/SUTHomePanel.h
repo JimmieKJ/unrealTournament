@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
+#include "../Widgets/SUTImage.h"
 #include "SUTPartyWidget.h"
 #include "SUTPartyInviteWidget.h"
 
@@ -29,11 +30,9 @@ protected:
 	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
+	TSharedRef<SWidget> BuildMainButtonContent();
 
 	FReply BasicTraining_Click();
-	FReply QuickMatch_DM_Click();
-	FReply QuickMatch_CTF_Click();
-	FReply QuickMatch_TeamShowdown_Click();
 	FReply OfflineAction_Click();
 	FReply FindAMatch_Click();
 	FReply FragCenter_Click();
@@ -50,6 +49,9 @@ protected:
 	TSharedPtr<SUTPartyWidget> PartyBox;
 	TSharedPtr<SUTPartyInviteWidget> PartyInviteBox;
 
+	TSharedPtr<SVerticalBox> NewChallengeBox;
+	TSharedPtr<SUTImage> NewChallengeImage;
+
 	virtual void BuildAnnouncement();
 
 	float AnnouncmentTimer;
@@ -62,6 +64,11 @@ protected:
 	TSharedPtr<SUTBorder> AnimWidget;
 
 	virtual void AnimEnd();
+	virtual void BuildQuickplayButton(TSharedPtr<SHorizontalBox> QuickPlayBox, FName BackgroundTexture, FText Caption, FName QuickMatchType, float Padding=0.0f);
+	FReply QuickPlayClick(FName QuickMatchType);
+
+	TSharedRef<SWidget> BuildRankedPlaylist();
+	FReply OnStartRankedPlaylist(int32 PlaylistId);
 };
 
 #endif

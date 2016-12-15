@@ -2082,6 +2082,7 @@ namespace EMenuCommand
 {
 	const FName MC_QuickPlayDM = FName(TEXT("MenuOption_QuickPlayDM"));
 	const FName MC_QuickPlayCTF = FName(TEXT("MenuOption_QuickPlayCTF"));
+	const FName MC_QuickPlayFlagrun = FName(TEXT("MenuOption_QuickPlayFlagrun"));
 	const FName MC_QuickPlayShowdown = FName(TEXT("MenuOption_QuickPlayShowdown"));
 	const FName MC_Challenges = FName(TEXT("MenuOption_QuickPlayChallenges"));
 	const FName MC_FindAMatch = FName(TEXT("MenuOption_FindAMatch"));
@@ -2093,6 +2094,8 @@ namespace ETutorialTags
 	const FName TUTTAG_Weapons = FName(TEXT("WeaponsTutorial"));
 	const FName TUTTAG_Pickups = FName(TEXT("PickupTutorial"));
 	const FName TUTTAG_DM = FName(TEXT("DMTutorial"));
+	const FName TUTTAG_Flagrun = FName(TEXT("FlagrunTutorial"));
+	const FName TUTTAG_Showdown = FName(TEXT("ShowdownTutorial"));
 	const FName TUTTAG_TDM = FName(TEXT("TDMTutorial"));
 	const FName TUTTAG_CTF = FName(TEXT("CTFTutorial"));
 	const FName TUTTAG_Duel = FName(TEXT("DuelTutorial"));

@@ -6052,12 +6052,15 @@ bool UUTLocalPlayer::IsInAnActiveParty()
 
 bool UUTLocalPlayer::IsMenuOptionLocked(FName MenuCommand) const
 {
-
 	if (CurrentProfileSettings != nullptr)
 	{
 		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			
 		{
 			return !(CurrentProfileSettings &&  ((CurrentProfileSettings->TutorialMask & TUTORIAL_DM) == TUTORIAL_DM));
+		}
+		if (MenuCommand == EMenuCommand::MC_QuickPlayFlagrun)			
+		{
+			return !(CurrentProfileSettings &&  ((CurrentProfileSettings->TutorialMask & TUTORIAL_FlagRun) == TUTORIAL_FlagRun));
 		}
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		
 		{
@@ -6098,6 +6101,7 @@ FText UUTLocalPlayer::GetMenuCommandTooltipText(FName MenuCommand) const
 		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			return NSLOCTEXT("SUTHomePanel", "QuickPlayDMLocked","Before you can play Deathmatch online, you need to complete the Deathmatch training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		return NSLOCTEXT("SUTHomePanel", "QuickPlayCTFLocked","Before you can play Capture the Flag online, you need to complete the CTF training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	return NSLOCTEXT("SUTHomePanel", "QuickPlayShowdownLocked","Before you can play Showdown online, you need to complete the Showdown training in Basic Training.");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayFlagrun)	return NSLOCTEXT("SUTHomePanel", "QuickPlayFlagrunLocked","Before you can play Flag Run online, you need to complete the flag run training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallengesLocked","Challenges are not yet available.  Please complete the movement, weapons and pickup training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		return NSLOCTEXT("SUTHomePanel", "QuickPlayFindAMatchLocked","Online play is unavailable until you complete the movement, weapons and pickup and one game mode training in Basic Training.");
 	}
@@ -6105,6 +6109,7 @@ FText UUTLocalPlayer::GetMenuCommandTooltipText(FName MenuCommand) const
 	{
 		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			return NSLOCTEXT("SUTHomePanel", "QuickPlayDM","Free for all Deathmatch!  Quickly find and join an online deathmatch game against players close to your skill level.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		return NSLOCTEXT("SUTHomePanel", "QuickPlayCTF","Cap a flag or defend your base.  Click here to find and join an online capture the flag game against players close to your skill level");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayFlagrun)	return NSLOCTEXT("SUTHomePanel", "QuickPlayFlagrun","Be the hero and break though the defensive line to capture your flag.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	return NSLOCTEXT("SUTHomePanel", "QuickPlayShowdown","3v3 Showdown against players close to your skill level.");
 		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallenges","Test your skills offline against our world class AI.");
 		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		return NSLOCTEXT("SUTHomePanel", "QuickPlayFindAMatch","Head online and find games to play.");
@@ -6240,3 +6245,27 @@ FReply UUTLocalPlayer::ToggleFriendsAndChat()
 }
 
 
+bool UUTLocalPlayer::HasProgressionKey(FName RequiredKey)
+{
+	// Eventually, this key list will be pulled from the MCP or somewhere.  But until them, here is a big if/then/else block :)
+
+	if (RequiredKey == FName(TEXT("PROGRESSION_KEY_NoLongerANoob")))
+	{
+		return (CurrentProfileSettings && CurrentProfileSettings->TutorialMask > TUTORIAL_SkillMoves);
+	}
+
+	return false;
+}
+
+bool UUTLocalPlayer::HasProgressionKeys(TArray<FName> RequiredKeys)
+{
+	for (int32 i = 0; i < RequiredKeys.Num(); i++)
+	{
+		if (!HasProgressionKey(RequiredKeys[i]))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}

@@ -34,6 +34,7 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _IsToggleButton(false)
 		, _WidgetTag(0)
 		, _CaptionHAlign( HAlign_Left )
+		, _bSpringButton( false )
 
 		{}
 
@@ -107,6 +108,8 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		/** Horizontal alignment */
 		SLATE_ARGUMENT( EHorizontalAlignment, CaptionHAlign )
 
+		SLATE_ARGUMENT( bool, bSpringButton)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -147,10 +150,12 @@ protected:
 	virtual void Press() { };
 	virtual void Release() { };
 
+	bool bSpringButton;
+
 public:
 
 	FSlateColor GetLabelColor() const;
-
+	
 
 };
 

@@ -29,6 +29,8 @@ struct FPlaylistItem
 	FString TeamEloRating;
 	UPROPERTY()
 	TArray<FString> MapNames;
+	UPROPERTY()
+	FString SlateBadgeName;
 };
 
 UCLASS(config = Game, notplaceable)
@@ -61,6 +63,9 @@ public:
 	bool GetPlaylistId(int32 PlaylistIndex, int32& PlaylistId);
 
 	bool GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName);
+
+	FName GetPlaylistSlateBadge(int32 PlaylistId);
+
 
 	bool GetGameModeForPlaylist(int32 PlaylistId, FString& GameMode);
 

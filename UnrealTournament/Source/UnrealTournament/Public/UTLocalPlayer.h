@@ -1193,5 +1193,13 @@ public:
 	virtual FReply ToggleFriendsAndChat();
 
 
+	/** 
+	 *  Will return true if a progression key has been set.  NOTE until we bring a progression system online,
+	 *	this will be just a collection of ugly checks :) 
+	 **/
+
+	virtual bool HasProgressionKey(FName RequiredKey);
+	virtual bool HasProgressionKeys(TArray<FName> RequiredKeys);
+
 };
 
