@@ -664,6 +664,9 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		    {
 				bNeedsDBufferTargets = true;
 			}
+
+			// PLK - hack to always create the dbuffer render targets, using the dummy targets doesn't work
+			bNeedsDBufferTargets = true;
 		}
 
 		// If we need dbuffer targets, initialize them
