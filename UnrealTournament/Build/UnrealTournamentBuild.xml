@@ -352,7 +352,6 @@
             <TagReceipt Files="$(EngineReceiptsDir)/UnrealAtoS.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
             <TagReceipt Files="$(EngineReceiptsDir)/DsymExporter.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
             <TagReceipt Files="$(EngineReceiptsDir)/UnrealPak.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
-            <Log Files="#TargetsToCopy"/>
             <Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../UnrealFrontend*;.../UnrealFrontEnd/...;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;$(RootDir)/.../Perforce/...;.../Qualcomm/...;.../svn/..." With="#TrimmedTargets"/>
 			<Tag Files="$(EngineReceiptsDir)/*" Filter="*.target" Except="UnrealFrontend*;*UnrealHeaderTool*" With="#TrimmedTargets"/>
 			<Tag Files="$(UTReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
@@ -398,7 +397,7 @@
             <TagReceipt Files="$(StagingDirEngineBinaries)/DsymExporter.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
             <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Win32/...;.../Win64/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Win64/...;.../Binaries/Linux/..." With="#ToSign_Trimmed"/>
-			<Sign Files="#ToSign_Trimmed"/>
+			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac" NotifyOnWarnings="false">
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
