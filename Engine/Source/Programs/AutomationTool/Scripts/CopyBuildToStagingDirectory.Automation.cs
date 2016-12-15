@@ -1917,11 +1917,12 @@ public partial class Project : CommandUtils
                             }
                         }
 					}
-
+                    /*
 					if (Params.bCodeSign)
 					{
 						SC.StageTargetPlatform.SignExecutables(SC, Params);
 					}
+                    */
 				}
 			}
 
