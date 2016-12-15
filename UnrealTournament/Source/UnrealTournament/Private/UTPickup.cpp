@@ -113,6 +113,7 @@ FCanvasIcon AUTPickup::GetMinimapIcon() const
 
 void AUTPickup::Reset_Implementation()
 {
+	bHasSpawnedThisRound = false;
 	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
 	if (bDelayedSpawn)
 	{
@@ -236,7 +237,7 @@ void AUTPickup::StartSleeping_Implementation()
 {
 	SetPickupHidden(true);
 	SetActorEnableCollision(false);
-	if (RespawnTime > 0.0f)
+	if ((RespawnTime > 0.0f) && (!bSpawnOncePerRound || !bHasSpawnedThisRound))
 	{
 		if (!bFixedRespawnInterval || !GetWorld()->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 		{
@@ -296,9 +297,10 @@ void AUTPickup::PlayTakenEffects(bool bReplicate)
 }
 void AUTPickup::WakeUp_Implementation()
 {
+	bHasSpawnedThisRound = true;
 	SetPickupHidden(false);
 	GetWorld()->GetTimerManager().ClearTimer(WakeUpTimerHandle);
-	if (bFixedRespawnInterval)
+	if (bFixedRespawnInterval && !bSpawnOncePerRound)
 	{
 		// start timer for next time
 		GetWorld()->GetTimerManager().SetTimer(WakeUpTimerHandle, this, &AUTPickup::WakeUpTimer, RespawnTime, false);
@@ -465,6 +467,8 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME(AUTPickup, bFixedRespawnInterval);
 	// warning: we rely on this ordering
 	DOREPLIFETIME(AUTPickup, bReplicateReset);
+	DOREPLIFETIME(AUTPickup, bSpawnOncePerRound);
+	DOREPLIFETIME(AUTPickup, bHasSpawnedThisRound);
 	DOREPLIFETIME(AUTPickup, State);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
 }

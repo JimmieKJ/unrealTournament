@@ -540,7 +540,7 @@ public:
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
-	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType);
+	virtual float OverrideRespawnTime(AUTPickupInventory* Pickup, TSubclassOf<AUTInventory> InventoryType);
 
 	/** Return true if playerstart P should be avoided for this game mode. */
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P);

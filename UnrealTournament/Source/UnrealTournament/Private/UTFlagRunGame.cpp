@@ -489,17 +489,22 @@ void AUTFlagRunGame::DefaultTimer()
 	}
 }
 
-float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
+float AUTFlagRunGame::OverrideRespawnTime(AUTPickupInventory* Pickup, TSubclassOf<AUTInventory> InventoryType)
 {
-	if (InventoryType == nullptr)
+	if (!Pickup || !InventoryType)
 	{
 		return 0.f;
 	}
 	AUTWeapon* WeaponDefault = Cast<AUTWeapon>(InventoryType.GetDefaultObject());
 	if (WeaponDefault)
 	{
-		int32 RoundTime = (TimeLimit == 0) ? 300 : TimeLimit;
-		return WeaponDefault->bMustBeHolstered ? FMath::Max(20.f, RoundTime - 120.f) : 20.f;
+		if (WeaponDefault->bMustBeHolstered)
+		{
+			Pickup->bSpawnOncePerRound = true;
+			int32 RoundTime = (TimeLimit == 0) ? 300 : TimeLimit;
+			return FMath::Max(20.f, RoundTime - 120.f);
+		}
+		return 20.f;
 	}
 	return InventoryType.GetDefaultObject()->RespawnTime;
 }

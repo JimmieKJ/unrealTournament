@@ -83,7 +83,7 @@ public:
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
+	virtual float OverrideRespawnTime(AUTPickupInventory* Pickup, TSubclassOf<AUTInventory> InventoryType) override;
 	virtual bool HandleRallyRequest(AController* C) override;
 	virtual void CompleteRallyRequest(AController* C) override;
 	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;

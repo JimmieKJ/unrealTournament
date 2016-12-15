@@ -165,13 +165,13 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bGameHasImpactHammer = true;
 }
 
-float AUTGameMode::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType)
+float AUTGameMode::OverrideRespawnTime(AUTPickupInventory* Pickup, TSubclassOf<AUTInventory> InventoryType)
 {
 	if (bBasicTrainingGame && !bDamageHurtsHealth && (GetNetMode() == NM_Standalone) && InventoryType.GetDefaultObject()->IsA(AUTWeap_Enforcer::StaticClass()))
 	{
 		return 2.f;
 	}
-	return InventoryType ? InventoryType.GetDefaultObject()->RespawnTime : 0.f;
+	return Pickup && InventoryType ? InventoryType.GetDefaultObject()->RespawnTime : 0.f;
 }
 
 void AUTGameMode::NotifySpeedHack(ACharacter* Character)
