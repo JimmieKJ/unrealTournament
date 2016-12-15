@@ -611,12 +611,14 @@ void FNotifyBufferFinishedHooks::DispatchNotifies(FWaveInstance* WaveInstance, c
 	for (int32 NotifyIndex = Notifies.Num() - 1; NotifyIndex >= 0; --NotifyIndex)
 	{
 		// All nodes get an opportunity to handle the notify if we're forcefully stopping the sound
-		if (Notifies[NotifyIndex].NotifyNode->NotifyWaveInstanceFinished(WaveInstance) && !bStopped)
+		if (Notifies[NotifyIndex].NotifyNode)
 		{
-			break;
+			if (Notifies[NotifyIndex].NotifyNode->NotifyWaveInstanceFinished(WaveInstance) && !bStopped)
+			{
+				break;
+			}
 		}
 	}
-
 }
 
 void FNotifyBufferFinishedHooks::AddReferencedObjects( FReferenceCollector& Collector )
