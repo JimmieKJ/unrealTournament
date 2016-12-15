@@ -20,6 +20,18 @@ void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 		Objective = GameObjective;
 		Flag = GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject();
 		TotalFlagRunDistance = (Flag == nullptr) ? FLT_MAX : (Objective->GetActorLocation() - Flag->GetActorLocation()).Size();
+		if (GameObjective->DefensePoints.Num() == 0)
+		{
+			FurthestDefensePointDistance = 10000000.0f;
+		}
+		else
+		{
+			FurthestDefensePointDistance = 0.0f;
+			for (AUTDefensePoint* DP : GameObjective->DefensePoints)
+			{
+				FurthestDefensePointDistance = FMath::Max<float>(FurthestDefensePointDistance, (DP->GetActorLocation() - Objective->GetActorLocation()).Size());
+			}
+		}
 	}
 	LastFlagNode = nullptr;
 	SquadRoutes.Empty();
@@ -424,7 +436,8 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 	}
 	else
 	{
-		if (CurrentOrders == NAME_Defend)
+		// during initial setup all defending bots use defense points (if available)
+		if (CurrentOrders == NAME_Defend || !Flag->bFriendlyCanPickup)
 		{
 			SetDefensePointFor(B);
 		}
@@ -440,7 +453,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
-		else if (CurrentOrders == NAME_Defend)	
+		else if (CurrentOrders == NAME_Defend || B->GetDefensePoint() != nullptr)	
 		{
 			if (B->GetEnemy() != NULL)
 			{
@@ -535,19 +548,27 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 
 int32 AUTAsymCTFSquadAI::GetDefensePointPriority(AUTBot* B, AUTDefensePoint* Point)
 {
-	// prioritize defense points closer to start of map
-	// but outright reject those that the enemy FC has passed
-	const float PointDist = (Point->GetActorLocation() - Objective->GetActorLocation()).Size();
-	const FVector FlagLoc = (Flag->HoldingPawn != nullptr) ? B->GetEnemyLocation(Flag->HoldingPawn, true) : Flag->GetActorLocation();
-	const float FlagDist = (FlagLoc - Objective->GetActorLocation()).Size();
-	// hard reject if flag has passed the point or it's too far away from the action
-	if ((FlagDist - 4000.0f > PointDist && !Point->bSniperSpot) || FlagDist + 2000.0f < PointDist || (FlagDist < PointDist && GetWorld()->LineTraceTestByChannel(Point->GetActorLocation(), FlagLoc, ECC_Visibility)))
+	// only flag defense bots use the sniper spots since the offensive bots will switch to powerup control and pursuing enemies
+	if (Point->bSniperSpot && GetCurrentOrders(B) != NAME_Defend)
 	{
 		return 0;
 	}
 	else
 	{
-		return Super::GetDefensePointPriority(B, Point) + FMath::Min<int32>(33, FMath::TruncToInt(33.0f * (PointDist / TotalFlagRunDistance)));
+		// prioritize defense points closer to start of map
+		// but outright reject those that the enemy FC has passed
+		const float PointDist = (Point->GetActorLocation() - Objective->GetActorLocation()).Size();
+		const FVector FlagLoc = (Flag->HoldingPawn != nullptr) ? B->GetEnemyLocation(Flag->HoldingPawn, true) : Flag->GetActorLocation();
+		const float FlagDist = (FlagLoc - Objective->GetActorLocation()).Size();
+		// hard reject if flag has passed the point or it's too far away from the action
+		if ((FMath::Min<float>(FlagDist, FurthestDefensePointDistance) - 4000.0f > PointDist && !Point->bSniperSpot) || FlagDist + 2000.0f < PointDist || (FlagDist < PointDist && GetWorld()->LineTraceTestByChannel(Point->GetActorLocation(), FlagLoc, ECC_Visibility)))
+		{
+			return 0;
+		}
+		else
+		{
+			return Super::GetDefensePointPriority(B, Point) + FMath::Min<int32>(33, FMath::TruncToInt(33.0f * (PointDist / TotalFlagRunDistance)));
+		}
 	}
 }
 

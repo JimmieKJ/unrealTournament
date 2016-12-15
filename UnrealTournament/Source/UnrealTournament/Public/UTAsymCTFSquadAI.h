@@ -22,6 +22,9 @@ public:
 	// cached distance from flag start point to capture point
 	UPROPERTY()
 	float TotalFlagRunDistance;
+	// cached distance from capture point to furthest defense point
+	UPROPERTY()
+	float FurthestDefensePointDistance;
 	// cached PathNode that the flag was most recently at, used for flag approach pathing
 	UPROPERTY()
 	const UUTPathNode* LastFlagNode;
