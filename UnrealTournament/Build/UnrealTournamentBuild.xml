@@ -188,7 +188,7 @@
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Win64"/>
 			
 			<TagReceipt Files="$(UTReceiptsDir)/UnrealTournamentEditor.target;$(EngineReceiptsDir)/UnrealEngineLauncherProxy.target;$(EngineReceiptsDir)/CrashReportClient-Win64-Shipping.target;$(EngineReceiptsDir)/ShaderCompileWorker.target;$(EngineReceiptsDir)/UnrealCEFSubProcess.target;$(EngineReceiptsDir)/UnrealLightmass.target;$(EngineReceiptsDir)/UnrealPak.target;$(EngineReceiptsDir)/BootstrapPackagedGame-Win64-Shipping.target" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
-			<Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../*-HTML5*.dylib;.../UnrealFrontend*;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;.../Perforce/...;.../Qualcomm/...;.../svn/...;.../PhysX/.../*.dll.pdb;.../PhysX/.../*.pdb" With="#TrimmedTargets"/>
+			<Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../UnrealFrontend*;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;.../Perforce/...;.../Qualcomm/...;.../svn/...;.../PhysX/.../*.dll.pdb;.../PhysX/.../*.pdb" With="#TrimmedTargets"/>
 			<Tag Files="$(EngineReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
 			<Tag Files="$(UTReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
 			
@@ -352,8 +352,8 @@
             <TagReceipt Files="$(EngineReceiptsDir)/UnrealAtoS.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
             <TagReceipt Files="$(EngineReceiptsDir)/DsymExporter.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
             <TagReceipt Files="$(EngineReceiptsDir)/UnrealPak.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
-            
-            <Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../*-HTML5*.dylib;.../UnrealFrontend*;.../UnrealFrontEnd/...;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;$(RootDir)/.../Perforce/...;.../Qualcomm/...;.../svn/..." With="#TrimmedTargets"/>
+            <Log Files="#TargetsToCopy"/>
+            <Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../UnrealFrontend*;.../UnrealFrontEnd/...;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;$(RootDir)/.../Perforce/...;.../Qualcomm/...;.../svn/..." With="#TrimmedTargets"/>
 			<Tag Files="$(EngineReceiptsDir)/*" Filter="*.target" Except="UnrealFrontend*;*UnrealHeaderTool*" With="#TrimmedTargets"/>
 			<Tag Files="$(UTReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
 
@@ -398,7 +398,7 @@
             <TagReceipt Files="$(StagingDirEngineBinaries)/DsymExporter.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
             <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Win32/...;.../Win64/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Win64/...;.../Binaries/Linux/..." With="#ToSign_Trimmed"/>
-			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
+			<Sign Files="#ToSign_Trimmed"/>
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac" NotifyOnWarnings="false">
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
