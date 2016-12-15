@@ -546,7 +546,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 									}
 									else if (PC->UTPlayerState->bCanRally)
 									{
-										PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
+										PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), PC->UTPlayerState->CarriedObject ? 22 : 30, NearbyFC->PlayerState);
 									}
 								}
 							}
