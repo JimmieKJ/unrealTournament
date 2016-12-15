@@ -281,6 +281,11 @@ float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos,
 		}	
 		if (bUseShortWinMessage)
 		{
+			// early out if bronze with no time
+			if ((TimeNeeded <= 0) && ((Switch == 4) || (Switch == 8)))
+			{
+				return 0.f;
+			}
 			PostfixText = (TimeNeeded > 0) ? AttackersMustScoreShort : FText::GetEmpty();
 		}
 
