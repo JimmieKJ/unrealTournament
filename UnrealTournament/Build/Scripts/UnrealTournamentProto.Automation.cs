@@ -404,7 +404,7 @@ namespace UnrealTournamentGame.Automation
 				InternationalizationPreset: "English",
 				SkipCook: Cmd.ParseParam("skipcook"),
 				Clean: !Cmd.ParseParam("NoClean") && !Cmd.ParseParam("skipcook") && !Cmd.ParseParam("skippak") && !Cmd.ParseParam("skipstage") && !Cmd.ParseParam("skipbuild"),
-				DedicatedServer: ServerTargetPlatforms.Count > 0,
+				DedicatedServer: ServerConfigs.Count > 0,
 				Pak: true,
 				SkipPak: Cmd.ParseParam("skippak"),
 				NoXGE: Cmd.ParseParam("NoXGE"),
