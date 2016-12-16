@@ -34,6 +34,7 @@ class SUTMatchSummaryPanel;
 class SUTChatEditBox;
 class SUTQuickChatWindow;
 class UUTKillcamPlayback;
+class SUTWebMessage;
 
 enum class EMatchmakingCompleteResult : uint8;
 
@@ -1188,6 +1189,8 @@ protected:
 	UPROPERTY()
 	FName LastTutorial;
 
+	TSharedPtr<SUTWebMessage> WebMessageDialog;
+
 public:
 	/** Hides/Shows the friends and chat panel */
 	virtual FReply ToggleFriendsAndChat();
@@ -1200,6 +1203,13 @@ public:
 
 	virtual bool HasProgressionKey(FName RequiredKey);
 	virtual bool HasProgressionKeys(TArray<FName> RequiredKeys);
+
+	// Holds the last loaded version.  This is used to display the what's new dialog
+	UPROPERTY(config)
+	int32 LastLoadedVersionNumber;
+
+	virtual void ShowWebMessage(FText Caption, FString Url);
+	virtual void CloseWebMessage();
 
 };
 

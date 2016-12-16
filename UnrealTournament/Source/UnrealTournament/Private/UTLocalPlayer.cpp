@@ -29,6 +29,7 @@
 #include "SUTHUDSettingsDialog.h"
 #include "SUTQuickMatchWindow.h"
 #include "SUTQuickChatWindow.h"
+#include "SUTWebMessage.h"
 #include "SUTJoinInstanceWindow.h"
 #include "SUTFriendsPopupWindow.h"
 #include "SUTDownloadAllDialog.h"
@@ -4562,6 +4563,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseQuickChat();
 	HideHUDSettings();
 	HideRedirectDownload();
+	CloseWebMessage();
 
 	while (WindowStack.Num() > 0)
 	{
@@ -4931,11 +4933,24 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 					}
 				}
 
-				if ((uint32)MCPPulledData.CurrentVersionNumber >  FNetworkVersion::GetNetworkCompatibleChangelist())
+				uint32 MyVersion = FNetworkVersion::GetNetworkCompatibleChangelist();
+				UE_LOG(UT,Warning,TEXT("Compatible Network Version: %i"), MyVersion)
+
+				if ((uint32)MCPPulledData.CurrentVersionNumber > MyVersion )
 				{
 #if !UE_SERVER
-					ShowMessage(NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateTitle", "New Version Available"), NSLOCTEXT("UTLocalPlayer", "NeedtoUpdateMsg", "There is a newer version of game available.  Would you like to open the launcher and upgrade now?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnUpgradeResults),FVector2D(0.25,0.25));					
+					ShowWebMessage(NSLOCTEXT("UTLocalPlayer","NeedtoUpdateTitle","New Version Available"), TEXT("https://wiki.unrealengine.com/Version_Notes"));
 #endif
+				}
+				else if (IsMenuGame())
+				{
+					if (MCPPulledData.CurrentVersionNumber > LastLoadedVersionNumber)
+					{
+						// Open a Web page with better info
+						ShowWebMessage(NSLOCTEXT("UTLocalPlayer","ThanksForUpdating","New Features"), TEXT("https://wiki.unrealengine.com/Version_Notes"));
+						LastLoadedVersionNumber = (uint32)MCPPulledData.CurrentVersionNumber;
+						SaveConfig();
+					}
 				}
 
 			}
@@ -6268,4 +6283,25 @@ bool UUTLocalPlayer::HasProgressionKeys(TArray<FName> RequiredKeys)
 	}
 
 	return true;
+}
+
+void UUTLocalPlayer::ShowWebMessage(FText Caption, FString Url)
+{
+	if (!WebMessageDialog.IsValid())
+	{
+		SAssignNew(WebMessageDialog, SUTWebMessage)
+			.PlayerOwner(this);
+
+		OpenDialog(WebMessageDialog.ToSharedRef(), 2000);
+		WebMessageDialog->Browse(Caption, Url);
+	}
+}
+
+void UUTLocalPlayer::CloseWebMessage()
+{
+	if (WebMessageDialog.IsValid())
+	{
+		CloseDialog(WebMessageDialog.ToSharedRef());
+		WebMessageDialog.Reset();
+	}
 }

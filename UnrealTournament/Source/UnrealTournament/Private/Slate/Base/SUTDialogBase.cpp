@@ -68,7 +68,7 @@ void SUTDialogBase::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SImage)
-			.Image(InArgs._bShadow ? SUWindowsStyle::Get().GetBrush("UT.TopMenu.Shadow") : new FSlateNoResource)
+			.Image(InArgs._bShadow ? SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded") : new FSlateNoResource)
 		]
 		+ SOverlay::Slot()
 		.VAlign(VAlign_Fill)

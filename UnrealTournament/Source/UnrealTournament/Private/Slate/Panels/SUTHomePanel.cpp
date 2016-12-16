@@ -356,8 +356,16 @@ TSharedRef<SWidget> SUTHomePanel::BuildMainButtonContent()
 			.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_Challenges) ))
 			.bSpringButton(true)
 			[
-				SNew(SUTBorder)
-				.BorderImage(SUTStyle::Get().GetBrush("UT.HomePanel.Challenges"))
+				SNew(SOverlay)
+				+SOverlay::Slot()
+				[
+					SNew(SUTImage)
+					.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Challenges"))
+					.WidthOverride(250)
+					.HeightOverride(270)
+				]
+				+SOverlay::Slot()
+				.VAlign(VAlign_Bottom)
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot().AutoHeight().Padding(0.0f,130.0f,0.0f,0.0f)
@@ -415,9 +423,16 @@ TSharedRef<SWidget> SUTHomePanel::BuildMainButtonContent()
 			.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTHomePanel","BasicTrainingTT","Complete several training sessions to lean all of the skills needed to compete in the tournament.")))
 			.bSpringButton(true)
 			[
-
-				SNew(SUTBorder)
-				.BorderImage(SUTStyle::Get().GetBrush("UT.HomePanel.BasicTraining"))
+				SNew(SOverlay)
+				+SOverlay::Slot()
+				[
+					SNew(SUTImage)
+					.Image(SUTStyle::Get().GetBrush("UT.HomePanel.BasicTraining"))
+					.WidthOverride(250)
+					.HeightOverride(270)
+				]
+				+SOverlay::Slot()
+				.VAlign(VAlign_Bottom)
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot().AutoHeight().Padding(0.0f,130.0f,0.0f,0.0f)
@@ -488,15 +503,23 @@ void SUTHomePanel::BuildQuickplayButton(TSharedPtr<SHorizontalBox> QuickPlayBox,
 				.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, QuickMatchType) ) )
 				.ContentPadding(FMargin(2.0f, 2.0f, 2.0f, 2.0f))
 				[
-					SNew(SBorder)
-					.BorderImage(SUTStyle::Get().GetBrush(BackgroundTexture))
+					SNew(SOverlay)
+					+SOverlay::Slot()
+					[
+						SNew(SUTImage)
+						.Image(SUTStyle::Get().GetBrush(BackgroundTexture))
+						.WidthOverride(250)
+						.HeightOverride(270)
+					]
+					+SOverlay::Slot()
+					.VAlign(VAlign_Bottom)
 					[
 						SNew(SVerticalBox)
 						+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
-						.Padding(0.0,195.0)
 						[
 							SNew(SBorder)
 							.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+							.Padding(FMargin(0.0f,0.0f,0.0f,0.0f))
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
