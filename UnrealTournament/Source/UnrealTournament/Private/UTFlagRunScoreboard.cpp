@@ -298,9 +298,8 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		}
 	}
 
-	if (GS && GS->HasMatchEnded() && (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshTime + 0.5f + FMath::Min(float(PendingTiebreak), 20.f) * 0.05f + FMath::Max(0.f, float(PendingTiebreak) - 20.f) * 0.025f))
+	if (GS && GS->HasMatchEnded() && (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshTime + 1.f + FMath::Min(FMath::Abs(float(PendingTiebreak)), 20.f) * 0.05f + FMath::Max(0.f, FMath::Abs(float(PendingTiebreak)) - 20.f) * 0.025f))
 	{
-	//	UE_LOG(UT, Warning, TEXT("WIN at %f"), CurrentTime);
 		DrawWinAnnouncement(DeltaTime, UTHUDOwner->HugeFont);
 		return;
 	}
@@ -349,7 +348,6 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		{
 			if (CurrentTime - DeltaTime < PoundStart + i*PoundInterval)
 			{
-			//	UE_LOG(UT, Warning, TEXT("Pound %d at %f"), i, CurrentTime);
 				UTHUDOwner->UTPlayerOwner->ClientPlaySound(StarPoundSound);
 			}
 			float StarXPos = ScoreX;
@@ -358,7 +356,6 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 			{
 				if (CurrentTime - DeltaTime < WooshStart + i*WooshInterval)
 				{
-			//		UE_LOG(UT, Warning, TEXT("Woosh %d at %f"), i, CurrentTime);
 					UTHUDOwner->UTPlayerOwner->ClientPlaySound(StarWooshSound);
 				}
 				else if ((CurrentTime >= WooshStart + i*WooshInterval + WooshTime) && (CurrentTime - DeltaTime < WooshStart + i*WooshInterval + WooshTime))
