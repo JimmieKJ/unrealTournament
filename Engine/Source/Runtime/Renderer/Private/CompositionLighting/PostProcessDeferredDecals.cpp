@@ -660,13 +660,10 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 		if (ViewFamily.EngineShowFlags.Decals)
 	    {
 		    FScene& Scene = *(FScene*)ViewFamily.Scene;
-		    if (Scene.Decals.Num() > 0)
+		    if (Scene.Decals.Num() > 0 || Context.View.MeshDecalPrimSet.NumPrims() > 0)
 		    {
 				bNeedsDBufferTargets = true;
 			}
-
-			// PLK - hack to always create the dbuffer render targets, using the dummy targets doesn't work
-			bNeedsDBufferTargets = true;
 		}
 
 		// If we need dbuffer targets, initialize them
@@ -733,7 +730,11 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 	{
 		if (CurrentStage == DRS_BeforeBasePass || CurrentStage == DRS_BeforeLighting)
 		{
-			RenderMeshDecals(Context, DrawRenderState, CurrentStage);
+			if (Context.View.MeshDecalPrimSet.NumPrims() > 0)
+			{
+				check(bNeedsDBufferTargets || CurrentStage != DRS_BeforeBasePass);
+				RenderMeshDecals(Context, DrawRenderState, CurrentStage);
+			}
 		}
 
 		FScene& Scene = *(FScene*)ViewFamily.Scene;
