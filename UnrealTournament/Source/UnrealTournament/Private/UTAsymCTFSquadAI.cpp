@@ -99,7 +99,7 @@ float AUTAsymCTFSquadAI::ModifyEnemyRating(float CurrentRating, const FBotEnemyI
 		}
 	}
 	// prioritize enemies that target friendly flag carrier
-	else if (Flag->HoldingPawn != NULL && IsAttackingTeam() && (Flag->HoldingPawn->LastHitBy == EnemyInfo.GetPawn()->GetController() || !GetWorld()->LineTraceTestByChannel(EnemyInfo.LastKnownLoc, Flag->HoldingPawn->GetActorLocation(), ECC_Pawn, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams)))
+	else if (Flag && Flag->HoldingPawn != NULL && IsAttackingTeam() && (Flag->HoldingPawn->LastHitBy == EnemyInfo.GetPawn()->GetController() || !GetWorld()->LineTraceTestByChannel(EnemyInfo.LastKnownLoc, Flag->HoldingPawn->GetActorLocation(), ECC_Pawn, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams)))
 	{
 		return CurrentRating + 1.5f;
 	}
