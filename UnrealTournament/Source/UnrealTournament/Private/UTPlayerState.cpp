@@ -3440,6 +3440,19 @@ void AUTPlayerState::OnRepTaunt()
 	{
 		PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
 	}
+	else
+	{
+		//Clear any active taunts
+		AUTCharacter* UTChar = GetUTCharacter();
+		if (UTChar && UTChar->CurrentTaunt && UTChar->GetMesh())
+		{
+			UAnimInstance* AnimInstance = UTChar->GetMesh()->GetAnimInstance();
+			if (AnimInstance != nullptr)
+			{
+				AnimInstance->Montage_Stop(0.0f, UTChar->CurrentTaunt);
+			}
+		}
+	}
 }
 
 void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
