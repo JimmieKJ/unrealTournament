@@ -115,7 +115,15 @@ void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 			GetClipCursor(&OriginalCursorRect);
 
 			// Explicit output selection
-			HRESULT Result = SwapChain->SetFullscreenState(bIsFullscreen, Output);
+			HRESULT Result = S_OK;
+			if (bIsFullscreen)
+			{
+				Result = SwapChain->SetFullscreenState(bIsFullscreen, Output);
+			}
+			else
+			{
+				Result = SwapChain->SetFullscreenState(bIsFullscreen, nullptr);
+			}
 
 			if(SUCCEEDED(Result))
 			{
