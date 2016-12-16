@@ -1151,3 +1151,7 @@ void AUTFlagRunGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
 	}
 }
 
+void AUTFlagRunGame::PlayEndOfMatchMessage()
+{
+	// stub to not break the build
+}
