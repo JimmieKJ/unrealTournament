@@ -1259,11 +1259,6 @@ void AUTGameState::OnRep_MatchState()
 			}
 		}
 	}
-
-	if ( bRunFPSChart && (GetMatchState() == MatchState::MatchIntermission))
-	{
-		StopFPSCharts();
-	}
 }
 
 // By default, do nothing.  
