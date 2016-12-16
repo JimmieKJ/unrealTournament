@@ -99,6 +99,11 @@ void AUTLineUpHelper::CleanUpPlayerAfterLineUp(AUTPlayerController* UTPC)
 			}
 		}
 
+		if (UTPC->UTPlayerState)
+		{
+			UTPC->UTPlayerState->EmoteReplicationInfo.EmoteCount = 0;
+		}
+		
 		UTPC->SetEmoteSpeed(1.0f);
 		UTPC->FlushPressedKeys();
 	}
@@ -169,7 +174,7 @@ void AUTLineUpHelper::SetupDelayedLineUp()
 				ForceCharacterAnimResetForLineUp(UTChar);
 			}
 
-			UTPC->FlushPressedKeys();	
+			UTPC->FlushPressedKeys();
 
 			UTPC->ClientPrepareForLineUp();
 		}

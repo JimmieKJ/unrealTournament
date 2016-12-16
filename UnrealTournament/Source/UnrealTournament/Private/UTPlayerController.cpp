@@ -2493,6 +2493,20 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 			}
 		}
 	}
+
+	//If we are in a line-up, hide all pickups
+	AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive)
+	{
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickup* Pickup = Cast<AUTPickup>(*It);
+			if (Pickup)
+			{
+				HideComponentTree(Pickup->Collision, HiddenComponents);
+			}
+		}
+	}
 }
 
 void AUTPlayerController::ToggleScoreboard(bool bShow)
