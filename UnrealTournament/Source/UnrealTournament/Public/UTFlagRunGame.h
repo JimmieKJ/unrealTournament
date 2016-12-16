@@ -109,6 +109,7 @@ public:
 	virtual void HandleMatchIntermission() override;
 	virtual void CheatScore() override;
 	virtual void DefaultTimer() override;
+	virtual void PlayEndOfMatchMessage() override;
 
 	virtual void UpdateSkillRating() override;
 

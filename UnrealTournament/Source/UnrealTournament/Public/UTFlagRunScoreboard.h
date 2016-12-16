@@ -92,7 +92,7 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 		USoundBase* StarWooshSound;
 
 	UPROPERTY()
-		AUTTeamInfo* WinningTeam;
+		AUTTeamInfo* ScoringTeam;
 	
 	UPROPERTY()
 		APlayerState* ScoringPlayer;
@@ -109,7 +109,10 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY()
 		float ScoreInfoDuration;
 
-	virtual void AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlayerState* InScoringPlayer, uint8 InRoundBonus, uint8 InReason);
+	UPROPERTY()
+		bool bHasAnnouncedWin;
+
+	virtual void AnnounceRoundScore(AUTTeamInfo* InScoringTeam, APlayerState* InScoringPlayer, uint8 InRoundBonus, uint8 InReason);
 
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
@@ -121,7 +124,6 @@ protected:
 	virtual void DrawScoringPlayInfo(const struct FCTFScoringPlay& Play, float CurrentScoreHeight, float SmallYL, float MedYL, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, FFontRenderInfo TextRenderInfo, bool bIsSmallPlay) override;
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
-	virtual int32 GetSmallPlaysCount(int32 NumPlays) const override;
 	virtual bool ShouldDrawScoringStats() override;
 	virtual void DrawMinimap(float RenderDelta) override;
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset) override;
@@ -137,6 +139,8 @@ protected:
 	virtual bool ShowScoringInfo();
 
 	virtual void DrawScoreAnnouncement(float DeltaTime);
+
+	virtual float DrawWinAnnouncement(float DeltaTime, UFont* InFont);
 
 	virtual void DrawFramedBackground(float XOffset, float YOffset, float Width, float Height);
 
