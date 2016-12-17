@@ -6287,6 +6287,7 @@ bool UUTLocalPlayer::HasProgressionKeys(TArray<FName> RequiredKeys)
 
 void UUTLocalPlayer::ShowWebMessage(FText Caption, FString Url)
 {
+#if !UE_SERVER
 	if (!WebMessageDialog.IsValid())
 	{
 		SAssignNew(WebMessageDialog, SUTWebMessage)
@@ -6295,13 +6296,16 @@ void UUTLocalPlayer::ShowWebMessage(FText Caption, FString Url)
 		OpenDialog(WebMessageDialog.ToSharedRef(), 2000);
 		WebMessageDialog->Browse(Caption, Url);
 	}
+#endif
 }
 
 void UUTLocalPlayer::CloseWebMessage()
 {
+#if !UE_SERVER
 	if (WebMessageDialog.IsValid())
 	{
 		CloseDialog(WebMessageDialog.ToSharedRef());
 		WebMessageDialog.Reset();
 	}
+#endif
 }
