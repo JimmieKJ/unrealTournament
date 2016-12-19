@@ -634,6 +634,13 @@ void AUTWeap_RocketLauncher::UpdateLock()
 		return;
 	}
 
+	UUTWeaponStateFiringCharged* ChargeState = Cast<UUTWeaponStateFiringCharged>(CurrentState);
+	if (ChargeState != NULL && !ChargeState->bCharging)
+	{
+		// rockets are being released, don't change lock at this time
+		return;
+	}
+
 	const FVector FireLoc = UTOwner->GetPawnViewLocation();
 	AActor* NewTarget = UUTGameplayStatics::ChooseBestAimTarget(UTOwner->Controller, FireLoc, GetBaseFireRotation().Vector(), LockAim, LockRange, LockOffset,AUTCharacter::StaticClass());
 
