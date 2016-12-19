@@ -23,6 +23,7 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	bReportDefenseStatus = false;
 	bHasBeenEntered = false;
 	bHasFCEntry = false;
+	MinEnemyInBaseInterval = 7.f;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> AlarmSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Audio/Gameplay/A_FlagRunBaseAlarm.A_FlagRunBaseAlarm'"));
 	AlarmSound = AlarmSoundFinder.Object;
@@ -238,7 +239,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			else if (bIsNoRallyZone && !bIsTeamSafeVolume && Cast<AUTPlayerState>(P->PlayerState) && ((AUTPlayerState*)(P->PlayerState))->Team && (GS->bRedToCap == (((AUTPlayerState*)(P->PlayerState))->Team->TeamIndex == 0)))
 			{
 				// warn base is under attack
-				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
+				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > MinEnemyInBaseInterval)
 				{
 					AUTPlayerState* PS = (P->LastTargeter && !GS->OnSameTeam(P, P->LastTargeter)) ? P->LastTargeter : nullptr;
 					if (!PS)

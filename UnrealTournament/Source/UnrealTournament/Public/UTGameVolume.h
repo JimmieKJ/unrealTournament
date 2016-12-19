@@ -73,6 +73,11 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
 		bool bHasFCEntry;
 
+
+	/** minimum interval between non-FC enemy in base warnings */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		float MinEnemyInBaseInterval;
+
 	/** Used to identify unique routes/entries to enemy base.  Default -1, inner base 0, entries each have own value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		int32 RouteID;
