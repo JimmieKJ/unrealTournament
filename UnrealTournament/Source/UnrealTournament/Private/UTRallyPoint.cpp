@@ -239,7 +239,6 @@ void AUTRallyPoint::UpdateRallyReadyCountdown(float NewValue)
 	RallyReadyCountdown = FMath::Clamp(NewValue, 0.f, RallyReadyDelay);
 	ReplicatedCountdown = FMath::Max(0, int32(10.f*RallyReadyCountdown));
 	ClientCountdown = RallyReadyCountdown;
-	UE_LOG(UT, Warning, TEXT("Rally Ready %f Replicated %d"), RallyReadyCountdown, ReplicatedCountdown);
 }
 
 void AUTRallyPoint::OnReplicatedCountdown()
