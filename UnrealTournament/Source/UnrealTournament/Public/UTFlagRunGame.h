@@ -25,12 +25,6 @@ public:
 		float LastEntryDefenseWarningTime;
 
 	UPROPERTY()
-		int32 GoldBonusTime;
-
-	UPROPERTY()
-		int32 SilverBonusTime;
-
-	UPROPERTY()
 		int32 GoldScore;
 
 	UPROPERTY()
@@ -95,7 +89,6 @@ public:
 	virtual int32 GetFlagCapScore() override;
 	virtual int32 GetDefenseScore() override;
 	virtual void BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore = 0) override;
-	virtual void InitGameState() override;
 	virtual void CheckRoundTimeVictory() override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam) override;

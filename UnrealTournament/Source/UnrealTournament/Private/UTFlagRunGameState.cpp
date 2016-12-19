@@ -35,6 +35,8 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	bEnemyRallyPointIdentified = false;
 	EarlyEndTime = 0;
 	bTeamGame = true;
+	GoldBonusThreshold = 120;
+	SilverBonusThreshold = 60;
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -62,8 +64,6 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);
-	DOREPLIFETIME(AUTFlagRunGameState, GoldBonusThreshold);
-	DOREPLIFETIME(AUTFlagRunGameState, SilverBonusThreshold);
 	DOREPLIFETIME(AUTFlagRunGameState, EarlyEndTime);
 	DOREPLIFETIME(AUTFlagRunGameState, bAllowBoosts);
 	DOREPLIFETIME(AUTFlagRunGameState, bUsePrototypePowerupSelect);

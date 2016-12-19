@@ -46,8 +46,6 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	MinPlayersToStart = 10;
-	GoldBonusTime = 120;
-	SilverBonusTime = 60;
 	GoldScore = 3;
 	SilverScore = 2;
 	BronzeScore = 1;
@@ -114,14 +112,18 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 
 int32 AUTFlagRunGame::GetFlagCapScore()
 {
-	int32 BonusTime = UTGameState->GetRemainingTime();
-	if (BonusTime >= GoldBonusTime)
+	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(UTGameState);
+	if (GS)
 	{
-		return GoldScore;
-	}
-	if (BonusTime >= SilverBonusTime)
-	{
-		return SilverScore;
+		int32 BonusTime = GS->GetRemainingTime();
+		if (BonusTime >= GS->GoldBonusThreshold)
+		{
+			return GoldScore;
+		}
+		if (BonusTime >= GS->SilverBonusThreshold)
+		{
+			return SilverScore;
+		}
 	}
 	return BronzeScore;
 }
@@ -237,8 +239,8 @@ void AUTFlagRunGame::CheckRoundTimeVictory()
 		if (FRGS)
 		{
 			uint8 OldBonusLevel = FRGS->BonusLevel;
-			FRGS->BonusLevel = (RemainingTime >= GoldBonusTime) ? 3 : 2;
-			if (RemainingTime < SilverBonusTime)
+			FRGS->BonusLevel = (RemainingTime >= FRGS->GoldBonusThreshold) ? 3 : 2;
+			if (RemainingTime < FRGS->SilverBonusThreshold)
 			{
 				FRGS->BonusLevel = 1;
 			}
@@ -248,18 +250,6 @@ void AUTFlagRunGame::CheckRoundTimeVictory()
 				FRGS->ForceNetUpdate();
 			}
 		}
-	}
-}
-
-void AUTFlagRunGame::InitGameState()
-{
-	Super::InitGameState();
-
-	AUTFlagRunGameState* RCTFGameState = Cast<AUTFlagRunGameState>(CTFGameState);
-	if (RCTFGameState)
-	{
-		RCTFGameState->GoldBonusThreshold = GoldBonusTime;
-		RCTFGameState->SilverBonusThreshold = SilverBonusTime;
 	}
 }
 

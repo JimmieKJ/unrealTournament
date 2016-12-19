@@ -168,20 +168,19 @@ void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InScoringTeam, APlaye
 	Reason = InReason;
 	ScoreReceivedTime = GetWorld()->GetTimeSeconds();
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
 	PendingScore = 1;
 	PendingTiebreak = 0;
-	if (DefaultGame && ScoringTeam)
+	if (ScoringTeam)
 	{
-		if (RoundBonus >= DefaultGame->GoldBonusTime)
+		if (RoundBonus >= GS->GoldBonusThreshold)
 		{
 			PendingScore = 3;
-			PendingTiebreak = FMath::Min(RoundBonus - DefaultGame->GoldBonusTime, 60);
+			PendingTiebreak = FMath::Min(RoundBonus - GS->GoldBonusThreshold, 60);
 		}
-		else if (RoundBonus >= DefaultGame->SilverBonusTime)
+		else if (RoundBonus >= GS->SilverBonusThreshold)
 		{
 			PendingScore = 2;
-			PendingTiebreak = FMath::Min(RoundBonus - DefaultGame->SilverBonusTime, 59);
+			PendingTiebreak = FMath::Min(RoundBonus - GS->SilverBonusThreshold, 59);
 		}
 		else if (RoundBonus > 0)
 		{
@@ -269,8 +268,7 @@ float UUTFlagRunScoreboard::DrawWinAnnouncement(float DeltaTime, UFont* InFont)
 void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-	if (!DefaultGame || !ScoringTeam)
+	if (!ScoringTeam)
 	{
 		return;
 	}
@@ -286,12 +284,12 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	FLinearColor BonusColor = GS->BronzeBonusColor;
 	if (Reason == 0)
 	{
-		if (RoundBonus >= DefaultGame->GoldBonusTime)
+		if (RoundBonus >= GS->GoldBonusThreshold)
 		{
 			NumStars = 3;
 			BonusColor = GS->GoldBonusColor;
 		}
-		else if (RoundBonus >= DefaultGame->SilverBonusTime)
+		else if (RoundBonus >= GS->SilverBonusThreshold)
 		{
 			NumStars = 2;
 			BonusColor = GS->SilverBonusColor;

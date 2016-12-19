@@ -13,10 +13,10 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY(Replicated)
 		uint32 bRedToCap : 1;
 
-	UPROPERTY(Replicated)
+	UPROPERTY()
 		int32 GoldBonusThreshold;
 
-	UPROPERTY(Replicated)
+	UPROPERTY()
 		int32 SilverBonusThreshold;
 
 	UPROPERTY()
