@@ -170,6 +170,7 @@ namespace StatusMessage
 	const FName Affirmative = FName(TEXT("Affirmative"));
 	const FName Negative = FName(TEXT("Negative"));
 	const FName EnemyRally = FName(TEXT("EnemyRally"));
+	const FName RallyNow = FName(TEXT("RallyNow"));
 	const FName FindFC = FName(TEXT("FindFC"));
 	const FName LastLife = FName(TEXT("LastLife"));
 	const FName EnemyLowLives = FName(TEXT("EnemyLowLives"));

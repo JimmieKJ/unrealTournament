@@ -80,6 +80,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::BehindYou, KEY_CALLOUTS + 5008);
 	StatusOffsets.Add(StatusMessage::RedeemerSpotted, KEY_CALLOUTS + 5009);
 	StatusOffsets.Add(StatusMessage::GetTheFlag, KEY_CALLOUTS + 5010);
+	StatusOffsets.Add(StatusMessage::RallyNow, KEY_CALLOUTS + 5011);
 
 	//FIRSTPICKUPSPEECH = KEY_CALLOUTS + 5099;
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
@@ -468,6 +469,10 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			else if (Switch == GetStatusIndex(StatusMessage::EnemyRally))
 			{
 				return (EnemyRallyMessages.Num() == 0) ? EmptySpeech : EnemyRallyMessages[FMath::RandRange(0, EnemyRallyMessages.Num() - 1)];
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::RallyNow))
+			{
+				return (RallyNowMessages.Num() == 0) ? EmptySpeech : RallyNowMessages[FMath::RandRange(0, RallyNowMessages.Num() - 1)];
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::FindFC))
 			{

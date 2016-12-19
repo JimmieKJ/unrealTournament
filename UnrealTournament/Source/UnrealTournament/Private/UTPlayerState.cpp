@@ -781,6 +781,11 @@ void AUTPlayerState::Tick(float DeltaTime)
 			if (GS && GS->bAttackersCanRally && MyPC && Team && (GS->bRedToCap == (Team->TeamIndex == 0)))
 			{
 				MyPC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 30, this);
+				AUTPlayerState* FC = GS->GetFlagHolder(Team->TeamIndex);
+				if (FC)
+				{
+					FC->AnnounceStatus(StatusMessage::RallyNow);
+				}
 			}
 		}
 		if (!StatsID.IsEmpty() && !RequestedName.IsEmpty() && Cast<AController>(GetOwner()))
