@@ -6313,6 +6313,7 @@ void UUTLocalPlayer::CloseWebMessage()
 
 void UUTLocalPlayer::ReportAbuse(TWeakObjectPtr<class AUTPlayerState> Troll)
 {
+#if !UE_SERVER
 	if (!AbuseDialog.IsValid())
 	{
 		SAssignNew(AbuseDialog, SUTReportUserDialog)
@@ -6321,13 +6322,16 @@ void UUTLocalPlayer::ReportAbuse(TWeakObjectPtr<class AUTPlayerState> Troll)
 
 		OpenDialog(AbuseDialog.ToSharedRef(), 1000);
 	}
+#endif
 }
 void UUTLocalPlayer::CloseAbuseDialog()
 {
+#if !UE_SERVER
 	if (AbuseDialog.IsValid())
 	{
 		CloseDialog(AbuseDialog.ToSharedRef());
 		AbuseDialog.Reset();
 	}
+#endif
 }
 
