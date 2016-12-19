@@ -72,7 +72,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(Replicated, BlueprintReadOnly)
 		bool bIsEnabled;
 
-	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly)
+	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly, Category = RallyPoint)
 		FName RallyPointState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RallyPoint)
