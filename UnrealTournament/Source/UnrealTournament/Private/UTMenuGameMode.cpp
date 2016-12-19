@@ -42,6 +42,13 @@ void AUTMenuGameMode::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+	//Hack to fix sound breaking when playing a single player game. 
+	//Handles unpausing sound sources
+	if (GetWorld() && GetWorld()->GetAudioDevice())
+	{
+		GetWorld()->GetAudioDevice()->Update(false);
+	}
+
 	AUTWorldSettings* WorldSettings;
 	WorldSettings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WorldSettings)
