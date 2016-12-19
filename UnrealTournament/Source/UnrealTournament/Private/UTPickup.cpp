@@ -66,6 +66,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	TeamSide = 255;
 	bOverride_TeamSide = false;
 	IconColor = FLinearColor::White;
+	bSpawnOncePerRound = false;
 }
 
 void AUTPickup::SetTacCom(bool bTacComEnabled)
@@ -384,12 +385,9 @@ void AUTPickup::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	UWorld* World = GetWorld();
-	if (RespawnTime > 0.0f && !State.bActive && World->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
+	if (TimerEffect && (RespawnTime > 0.0f) && !State.bActive && World->GetTimerManager().IsTimerActive(WakeUpTimerHandle))
 	{
-		if (TimerEffect != NULL)
-		{
-			TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - World->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle) / RespawnTime);
-		}
+		TimerEffect->SetFloatParameter(NAME_Progress, 1.0f - World->GetTimerManager().GetTimerRemaining(WakeUpTimerHandle) / RespawnTime);
 	}
 }
 
