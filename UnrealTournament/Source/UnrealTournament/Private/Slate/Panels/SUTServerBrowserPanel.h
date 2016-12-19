@@ -831,6 +831,9 @@ private:
 	virtual FText GetShowHubButtonText() const;
 	virtual FText GetShowServerButtonText() const;
 
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent) override;
+
+
 protected:
 	ECheckBoxState ShouldHideUnresponsiveServers() const;
 	void OnHideUnresponsiveServersChanged(const ECheckBoxState NewState);

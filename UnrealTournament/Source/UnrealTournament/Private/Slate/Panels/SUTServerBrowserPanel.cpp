@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTLocalPlayer.h"
+#include "SlateApplication.h"
 #include "SlateBasics.h"
 #include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
@@ -1363,6 +1364,11 @@ void SUTServerBrowserPanel::OnFindLANSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
+	if (!PlayerOwner->IsLoggedIn() && AllInternetServers.Num() == 0 && AllHubServers.Num() == 0)
+	{
+		PlayerOwner->ShowAuth();
+	}
+
 	SetBrowserState(EBrowserState::BrowserIdle);
 }
 
@@ -2429,7 +2435,6 @@ void SUTServerBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 	{
 		RefreshServers();
 	}
-
 	PlayerOwner->GetWorld()->GetTimerManager().SetTimer(RefreshTimerHandle, FTimerDelegate::CreateSP(this, &SUTServerBrowserPanel::RefreshSelectedServer), 30.f, true);
 }
 
@@ -2681,5 +2686,14 @@ void SUTServerBrowserPanel::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Wi
 	}
 }
 
+
+FReply SUTServerBrowserPanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::F5 && BrowserState == EBrowserState::BrowserIdle) 
+	{
+		RefreshServers();
+	}
+	return FReply::Unhandled();
+}
 
 #endif

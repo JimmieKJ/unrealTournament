@@ -686,7 +686,7 @@ void SUTHomePanel::AnimEnd()
 TSharedRef<SWidget> SUTHomePanel::BuildRankedPlaylist()
 {
 	UUTGameInstance* UTGameInstance = CastChecked<UUTGameInstance>(PlayerOwner->GetGameInstance());
-	if (UTGameInstance && UTGameInstance->GetPlaylistManager())
+	if (UTGameInstance && UTGameInstance->GetPlaylistManager() && PlayerOwner->IsLoggedIn())
 	{
 		int32 NumPlaylists = UTGameInstance->GetPlaylistManager()->GetNumPlaylists();
 		if (NumPlaylists > 0)
