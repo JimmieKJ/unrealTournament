@@ -184,6 +184,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UFUNCTION()
 		void OnRallyChargingChanged();
 
+	UFUNCTION(BlueprintImplementableEvent, Category=RallyPoint)
+		void OnRallyStateChanged();
+
 	virtual void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
 
 	UFUNCTION()

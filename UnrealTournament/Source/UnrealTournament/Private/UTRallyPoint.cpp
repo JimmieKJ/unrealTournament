@@ -460,6 +460,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 		}
 	}
 	OnAvailableEffectChanged();
+	OnRallyStateChanged();
 }
 
 void AUTRallyPoint::OnAvailableEffectChanged()
