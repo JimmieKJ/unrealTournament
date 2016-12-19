@@ -80,6 +80,7 @@
 #include "UTDemoNetDriver.h"
 #include "UTAnalytics.h"
 #include "QosInterface.h"
+#include "SUTReportUserDialog.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -6309,3 +6310,24 @@ void UUTLocalPlayer::CloseWebMessage()
 	}
 #endif
 }
+
+void UUTLocalPlayer::ReportAbuse(TWeakObjectPtr<class AUTPlayerState> Troll)
+{
+	if (!AbuseDialog.IsValid())
+	{
+		SAssignNew(AbuseDialog, SUTReportUserDialog)
+			.PlayerOwner(this)
+			.Troll(Troll);
+
+		OpenDialog(AbuseDialog.ToSharedRef(), 1000);
+	}
+}
+void UUTLocalPlayer::CloseAbuseDialog()
+{
+	if (AbuseDialog.IsValid())
+	{
+		CloseDialog(AbuseDialog.ToSharedRef());
+		AbuseDialog.Reset();
+	}
+}
+

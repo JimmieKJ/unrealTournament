@@ -693,6 +693,9 @@ public:
 
 	virtual bool HasMatchEnded() const;
 
+	UPROPERTY(Replicated)
+	FString ReplayID;
+
 };
 
 

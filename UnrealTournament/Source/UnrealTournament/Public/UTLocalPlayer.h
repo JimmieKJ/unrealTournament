@@ -35,6 +35,7 @@ class SUTChatEditBox;
 class SUTQuickChatWindow;
 class UUTKillcamPlayback;
 class SUTWebMessage;
+class SUTReportUserDialog;
 
 enum class EMatchmakingCompleteResult : uint8;
 
@@ -1190,6 +1191,7 @@ protected:
 	FName LastTutorial;
 
 	TSharedPtr<SUTWebMessage> WebMessageDialog;
+	TSharedPtr<SUTReportUserDialog> AbuseDialog;
 
 public:
 	/** Hides/Shows the friends and chat panel */
@@ -1210,6 +1212,9 @@ public:
 
 	virtual void ShowWebMessage(FText Caption, FString Url);
 	virtual void CloseWebMessage();
+
+	void ReportAbuse(TWeakObjectPtr<class AUTPlayerState> Troll);
+	void CloseAbuseDialog();
 
 };
 

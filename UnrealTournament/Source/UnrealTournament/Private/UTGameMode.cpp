@@ -1277,6 +1277,16 @@ void AUTGameMode::DefaultTimer()
 			}
 		}
 	}
+
+	// Update the Replay id.
+	if ( UTIsHandlingReplays() )
+	{
+		UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
+		if (DemoNetDriver != nullptr && DemoNetDriver->ReplayStreamer.IsValid())
+		{
+			UTGameState->ReplayID = DemoNetDriver->ReplayStreamer->GetReplayID();
+		}
+	}
 }
 
 void AUTGameMode::ForceLobbyUpdate()

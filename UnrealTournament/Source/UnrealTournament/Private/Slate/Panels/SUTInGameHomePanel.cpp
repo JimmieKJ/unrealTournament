@@ -17,6 +17,13 @@
 
 #if !UE_SERVER
 
+const int32 ECONTEXT_COMMAND_ShowPlayerCard 	= 0;
+const int32 ECONTEXT_COMMAND_MutePlayer 		= 255;
+const int32 ECONTEXT_COMMAND_FriendRequest 		= 1;
+const int32 ECONTEXT_COMMAND_KickVote			= 2;
+const int32 ECONTEXT_COMMAND_AdminKick			= 3;
+const int32 ECONTEXT_COMMAND_AdminBan			= 4;
+const int32 ECONTEXT_COMMAND_ReportPlayer		= 5;
 
 void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 {
@@ -218,7 +225,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 		.AutoHeight()
 		[
 			SNew(SUTButton)
-			.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 0, SelectedPlayer)
+			.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_ShowPlayerCard, SelectedPlayer)
 			.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 			.Text(NSLOCTEXT("SUTInGameHomePanel","ShowPlayerCard","Show Player Card"))
 			.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -229,12 +236,26 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 		{
 			if (PlayerOwner->PlayerController == nullptr || SelectedPlayer.Get() != PlayerOwner->PlayerController->PlayerState)
 			{
-				// Add the show player card
+				if (!SelectedPlayer->bReported)
+				{
+					// Report a player
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_ReportPlayer, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(NSLOCTEXT("SUTInGameHomePanel","ReportAbuse","Report Abuse"))
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+				}
+
+				// Mute Player
 				MenuBox->AddSlot()
 				.AutoHeight()
 				[
 					SNew(SUTButton)
-					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 255, SelectedPlayer)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_MutePlayer, SelectedPlayer)
 					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 					.Text(this, &SUTInGameHomePanel::GetMuteLabelText)
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -260,7 +281,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 					.AutoHeight()
 					[
 						SNew(SUTButton)
-						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 1, SelectedPlayer)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_FriendRequest, SelectedPlayer)
 						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 						.Text(NSLOCTEXT("SUTInGameHomePanel","SendFriendRequest","Send Friend Request"))
 						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -278,7 +299,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 					.AutoHeight()
 					[
 						SNew(SUTButton)
-						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 2, SelectedPlayer)
+						.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_KickVote, SelectedPlayer)
 						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 						.Text(NSLOCTEXT("SUTInGameHomePanel","VoteToKick","Vote to Kick"))
 						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -306,7 +327,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 				.AutoHeight()
 				[
 					SNew(SUTButton)
-					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 3, SelectedPlayer)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_AdminKick, SelectedPlayer)
 					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 					.Text(NSLOCTEXT("SUTInGameHomePanel","AdminKick","Admin Kick"))
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -315,7 +336,7 @@ void SUTInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D Co
 				.AutoHeight()
 				[
 					SNew(SUTButton)
-					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, 4, SelectedPlayer)
+					.OnClicked(this, &SUTInGameHomePanel::ContextCommand, ECONTEXT_COMMAND_AdminBan, SelectedPlayer)
 					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
 					.Text(NSLOCTEXT("SUTInGameHomePanel","AdminBan","Admin Ban"))
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
@@ -355,16 +376,17 @@ FReply SUTInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPla
 
 			switch (CommandId)
 			{
-				case 0: PlayerOwner->ShowPlayerInfo(TargetPlayerState); break;
-				case 1: PlayerOwner->RequestFriendship(TargetPlayerState->UniqueId.GetUniqueNetId()); break;
-				case 2: if (TargetPlayerState != MyPlayerState)
+				case ECONTEXT_COMMAND_ShowPlayerCard:	PlayerOwner->ShowPlayerInfo(TargetPlayerState); break;
+				case ECONTEXT_COMMAND_FriendRequest:	PlayerOwner->RequestFriendship(TargetPlayerState->UniqueId.GetUniqueNetId()); break;
+				case ECONTEXT_COMMAND_KickVote: 
+						if (TargetPlayerState != MyPlayerState)
 						{
 							PC->ServerRegisterBanVote(TargetPlayerState.Get());
 						}
 						break;
-				case 3: PC->RconKick(TargetPlayerState->UniqueId.ToString(), false); break;
-				case 4: PC->RconKick(TargetPlayerState->UniqueId.ToString(), true);	break;
-				case 255:
+				case ECONTEXT_COMMAND_AdminKick:	PC->RconKick(TargetPlayerState->UniqueId.ToString(), false); break;
+				case ECONTEXT_COMMAND_AdminBan:		PC->RconKick(TargetPlayerState->UniqueId.ToString(), true);	break;
+				case ECONTEXT_COMMAND_MutePlayer:
 				{
 					TSharedPtr<const FUniqueNetId> Id = TargetPlayerState->UniqueId.GetUniqueNetId();
 					if ( PlayerOwner->PlayerController->IsPlayerMuted(Id.ToSharedRef().Get()) )
@@ -378,6 +400,7 @@ FReply SUTInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPla
 					HideContextMenu();
 					break;
 				}
+				case ECONTEXT_COMMAND_ReportPlayer:	PlayerOwner->ReportAbuse(TargetPlayerState); break;
 			}
 		}
 	}
