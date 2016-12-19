@@ -33,6 +33,12 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	virtual void WarnNoFlag(AUTCharacter* Toucher);
 
+	virtual void UpdateRallyReadyCountdown(float NewValue);
+
+	/** Min remaining time if FC steps off */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
+		float MinPersistentRemaining;
+
 	/** Minimum powered up time */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
 		float MinimumRallyTime;
@@ -40,7 +46,8 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly, Category = Objective)
 		float RallyReadyCountdown;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
+	/** Replicate 10 * RallyReadyCountdown */
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnReplicatedCountdown, Category = RallyPoint)
 		int32 ReplicatedCountdown;
 
 	UPROPERTY(BlueprintReadOnly, Category = RallyPoint)
@@ -124,6 +131,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	UPROPERTY()
 		float LastEnemyRallyWarning;
+
+	UFUNCTION()
+		void OnReplicatedCountdown();
 
 	FTimerHandle EnemyRallyWarningHandle;
 
