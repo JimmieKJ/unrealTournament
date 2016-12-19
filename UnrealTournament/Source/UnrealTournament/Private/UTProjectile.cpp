@@ -13,6 +13,8 @@
 #include "UTProj_WeaponScreen.h"
 #include "UTRepulsorBubble.h"
 #include "UTTeamDeco.h"
+#include "UTDemoNetDriver.h"
+#include "UTDemoRecSpectator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -925,6 +927,19 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 
 void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
+	if (GetWorld()->GetNetMode() == NM_Client)
+	{
+		UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+		if (DemoDriver && DemoDriver->IsServer())
+		{
+			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
+			if (DemoRecSpec && (GetWorld()->GetTimeSeconds() - DemoRecSpec->LastKillcamSeekTime) < 1.0f)
+			{
+				return;
+			}
+		}
+	}
+
 	if (!bExploded)
 	{
 		bExploded = true;

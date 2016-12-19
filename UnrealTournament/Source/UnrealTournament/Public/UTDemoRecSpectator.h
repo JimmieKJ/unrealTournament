@@ -70,6 +70,9 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	UPROPERTY()
 	APlayerState* QueuedPlayerStateToView;
 	
+	UPROPERTY()
+	float LastKillcamSeekTime;
+
 	virtual bool IsKillcamSpectator() const;
 
 	FNetworkGUID QueuedViewTargetGuid;
