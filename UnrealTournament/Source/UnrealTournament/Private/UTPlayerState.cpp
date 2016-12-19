@@ -3378,7 +3378,7 @@ bool AUTPlayerState::AllowFreezingTaunts() const
 		return false;
 	}
 
-	return GS->IsMatchInProgress() || GS->IsMatchIntermission();
+	return !GS->IsMatchInProgress() || GS->IsMatchIntermission();
 }
 
 bool AUTPlayerState::ServerFasterEmote_Validate()
