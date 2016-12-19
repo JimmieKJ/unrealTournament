@@ -2850,6 +2850,10 @@ void FAudioDevice::StartSources(TArray<FWaveInstance*>& WaveInstances, int32 Fir
 						// If we succeeded then play and update the source
 						if (bSuccess)
 						{
+							// Clear pause state
+							Source->bIsManuallyPaused = false;
+							Source->bIsPausedByGame = false;
+
 							// Set the pause before updating it
 							Source->SetPauseManually(Source->WaveInstance->bIsPaused);
 
