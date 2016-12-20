@@ -36,6 +36,7 @@
 #include "UTCTFMajorMessage.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTDeathMessage.h"
+#include "UTLineUpHelper.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -3519,14 +3520,18 @@ void AUTPlayerState::OnRep_ActiveGroupTaunt()
 
 void AUTPlayerState::PlayGroupTaunt()
 {
-	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
-	if (Role == ROLE_Authority)
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive)
 	{
-		ServerSetEmoteSpeed(EmoteSpeed);
-	}
+		// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
+		if (Role == ROLE_Authority)
+		{
+			ServerSetEmoteSpeed(EmoteSpeed);
+		}
 
-	ActiveGroupTaunt = GroupTauntClass;
-	OnRep_ActiveGroupTaunt();
+		ActiveGroupTaunt = GroupTauntClass;
+		OnRep_ActiveGroupTaunt();
+	}
 }
 
 void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
