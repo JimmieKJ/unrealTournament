@@ -79,7 +79,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	DefenseScorePrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
 	DefenseScorePostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " Successfully Defends!");
 	DeliveredPrefix = NSLOCTEXT("FlagRunScoreboard", "DeliveredBy", "Delivered by ");
-	ScoreInfoDuration = 8.f;
+	ScoreInfoDuration = 7.f;
 	PendingTiebreak = 0;
 	bHasAnnouncedWin = false;
 }
@@ -273,11 +273,11 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		return;
 	}
 
-	float PoundStart = 1.6f;
+	float PoundStart = 1.4f;
 	float PoundInterval = 0.5f;
-	float WooshStart = 4.1f;
-	float WooshTime = 0.3f;
-	float WooshInterval = 0.5f;
+	float WooshStart = 3.5f;
+	float WooshTime = 0.25f;
+	float WooshInterval = 0.4f;
 	float CurrentTime = GetWorld()->GetTimeSeconds() - ScoreReceivedTime;
 
 	int32 NumStars = 1;
@@ -497,9 +497,9 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		const float MapSize = FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 		float MapYPos = (LastScorePanelYOffset > 0.f) ? LastScorePanelYOffset - 2.f : 0.25f*Canvas->ClipY;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
-		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f) && !bHasAnnouncedWin)
+		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 8.f) && (GS->IntermissionTime > 0.f) && !bHasAnnouncedWin)
 		{
-			EndIntermissionTime = GetWorld()->GetTimeSeconds() + (GS->HasMatchEnded() ? 12.f : 9.1f);
+			EndIntermissionTime = GetWorld()->GetTimeSeconds() + (GS->HasMatchEnded() ? 11.f : 8.1f);
 			OldDisplayedParagraphs = 0;
 			bFullListPlayed = false;
 			bool bIsOnDefense = UTPS && UTPS->Team && GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
@@ -532,7 +532,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 				float TextXPos = 0.5f*Canvas->ClipX - 0.45f*Width;
 				TextYPos += 48.f*RenderScale;
 
-				int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
+				int32 DisplayedParagraphs = 8 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
 				int32 CountedParagraphs = 0;
 				int32 LastParStart = 0;
 				bool bFullList = true;
