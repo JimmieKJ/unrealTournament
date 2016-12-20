@@ -22,7 +22,7 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	RoundLives = 3;
 	BaseKillsForExtraLife = 25;
 	TimeLimit = 10;
-	MonsterCostLimit = 5;
+	EliteCostLimit = 5;
 	bUseLevelTiming = false;
 	HUDClass = AUTFlagRunPvEHUD::StaticClass();
 	SquadType = AUTFlagRunPvESquadAI::StaticClass();
@@ -34,6 +34,7 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/SilverSkaarj.SilverSkaarj_C")));
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/SilverSkaarjBoots.SilverSkaarjBoots_C")));
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/Ghost.Ghost_C")));
+	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/ShieldBot.ShieldBot_C")));
 
 	BoostPowerupTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Recall.BP_Recall_C")));
 	BoostPowerupTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/Boost_RocketSalvo.Boost_RocketSalvo_C")));
@@ -49,7 +50,14 @@ void AUTFlagRunPvEGame::InitGame(const FString& MapName, const FString& Options,
 		TSubclassOf<AUTMonster> NewType = Item.TryLoadClass<AUTMonster>();
 		if (NewType != nullptr)
 		{
-			MonsterTypes.Add(NewType);
+			if (NewType.GetDefaultObject()->Cost <= 0)
+			{
+				MonsterTypesPeon.Add(NewType);
+			}
+			else
+			{
+				MonsterTypesElite.Add(NewType);
+			}
 		}
 	}
 
@@ -130,8 +138,7 @@ void AUTFlagRunPvEGame::HandleMatchHasStarted()
 {
 	Super::HandleMatchHasStarted();
 
-	MonsterPointsRemaining = MonsterCostLimit * 8;
-	AddMonsters(8);
+	AddPeonMonsters(8);
 
 	SetTimerUFunc(this, FName(TEXT("EscalateMonsters")), 45.0f, true);
 }
@@ -163,14 +170,36 @@ void AUTFlagRunPvEGame::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
-void AUTFlagRunPvEGame::AddMonsters(int32 MaxNum)
+void AUTFlagRunPvEGame::SpawnMonster(TSubclassOf<AUTMonster> MonsterClass)
+{
+	TSubclassOf<AUTMonsterAI> AIType = *MonsterClass.GetDefaultObject()->AIControllerClass;
+	if (AIType == nullptr)
+	{
+		AIType = AUTMonsterAI::StaticClass();
+	}
+	AUTMonsterAI* NewAI = GetWorld()->SpawnActor<AUTMonsterAI>(AIType);
+	NewAI->PawnClass = MonsterClass;
+	NewAI->PlayerState->SetPlayerName(MonsterClass.GetDefaultObject()->DisplayName.ToString());
+	NewAI->InitializeSkill(GameDifficulty);
+	AUTPlayerState* PS = Cast<AUTPlayerState>(NewAI->PlayerState);
+	if (PS != NULL)
+	{
+		PS->bReadyToPlay = true;
+		PS->RemainingLives = MonsterClass.GetDefaultObject()->NumRespawns;
+		HandleRollingAttackerRespawn(PS);
+		PS->OnRespawnWaitReceived();
+	}
+	ChangeTeam(NewAI, 0, false);
+}
+
+void AUTFlagRunPvEGame::AddEliteMonsters(int32 MaxNum)
 {
 	TArray<TSubclassOf<AUTMonster>> ValidTypes;
 	for (int32 i = 0; i < MaxNum; i++)
 	{
-		const int32 PointsAvailable = FMath::Min<int32>(MonsterCostLimit, MonsterPointsRemaining);
-		ValidTypes.Reset(MonsterTypes.Num());
-		for (const TSubclassOf<AUTMonster>& NextType : MonsterTypes)
+		const int32 PointsAvailable = FMath::Min<int32>(EliteCostLimit, ElitePointsRemaining);
+		ValidTypes.Reset(MonsterTypesElite.Num());
+		for (const TSubclassOf<AUTMonster>& NextType : MonsterTypesElite)
 		{
 			if (NextType != nullptr && NextType.GetDefaultObject()->Cost <= PointsAvailable)
 			{
@@ -184,37 +213,35 @@ void AUTFlagRunPvEGame::AddMonsters(int32 MaxNum)
 		else
 		{
 			TSubclassOf<AUTMonster> Choice = ValidTypes[FMath::RandHelper(ValidTypes.Num())];
-			TSubclassOf<AUTMonsterAI> AIType = *Choice.GetDefaultObject()->AIControllerClass;
-			if (AIType == nullptr)
-			{
-				AIType = AUTMonsterAI::StaticClass();
-			}
-			AUTMonsterAI* NewAI = GetWorld()->SpawnActor<AUTMonsterAI>(AIType);
-			NewAI->PawnClass = Choice;
-			NewAI->PlayerState->SetPlayerName(Choice.GetDefaultObject()->DisplayName.ToString());
-			NewAI->InitializeSkill(GameDifficulty);
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewAI->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-				HandleRollingAttackerRespawn(PS);
-				PS->OnRespawnWaitReceived();
-			}
-			ChangeTeam(NewAI, 0, false);
-			MonsterPointsRemaining -= Choice.GetDefaultObject()->Cost;
+			SpawnMonster(Choice);
+			ElitePointsRemaining -= Choice.GetDefaultObject()->Cost;
+		}
+	}
+}
+
+void AUTFlagRunPvEGame::AddPeonMonsters(int32 Num)
+{
+	for (int32 i = 0; i < Num; i++)
+	{
+		if (MonsterTypesPeon.Num() == 0)
+		{
+			break;
+		}
+		else
+		{
+			TSubclassOf<AUTMonster> Choice = MonsterTypesPeon[FMath::RandHelper(MonsterTypesPeon.Num())];
+			SpawnMonster(Choice);
 		}
 	}
 }
 
 void AUTFlagRunPvEGame::EscalateMonsters()
 {
-	MonsterCostLimit += 2 + int32(GameDifficulty) / 3;
-	MonsterPointsRemaining += MonsterCostLimit;
-	AddMonsters(MonsterPointsRemaining / GetClass()->GetDefaultObject<AUTFlagRunPvEGame>()->MonsterCostLimit);
-	if (UTGameState->ElapsedTime > 0)
-	{
-		BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 0);
-	}
+	EliteCostLimit += 2 + int32(GameDifficulty) / 3;
+	ElitePointsRemaining += EliteCostLimit * 1.5;
+	AddPeonMonsters(1);
+	AddEliteMonsters(ElitePointsRemaining / GetClass()->GetDefaultObject<AUTFlagRunPvEGame>()->EliteCostLimit);
+	BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 0);
 }
 
 bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
@@ -265,6 +292,22 @@ void AUTFlagRunPvEGame::ScoreKill_Implementation(AController* Killer, AControlle
 			BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 1);
 		}
 		GS->ForceNetUpdate();
+	}
+
+	AUTMonsterAI* MobAI = Cast<AUTMonsterAI>(Other);
+	if (MobAI != nullptr)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(MobAI->PlayerState);
+		if (PS != nullptr && PS->RemainingLives > 0)
+		{
+			PS->RemainingLives--;
+			if (PS->RemainingLives == 0)
+			{
+				PS->bOutOfLives = true;
+				PS->RespawnTime = 100000.0;
+				MobAI->SetLifeSpan(3.0f); // for replication of death messages and the like
+			}
+		}
 	}
 }
 

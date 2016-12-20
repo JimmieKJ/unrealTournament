@@ -17,7 +17,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTMonster"))
 	TArray<FStringClassReference> EditableMonsterTypes;
 	UPROPERTY(BlueprintReadWrite)
-	TArray<TSubclassOf<AUTMonster>> MonsterTypes;
+	TArray<TSubclassOf<AUTMonster>> MonsterTypesPeon;
+	UPROPERTY(BlueprintReadWrite)
+	TArray<TSubclassOf<AUTMonster>> MonsterTypesElite;
 
 	// temp vial replacement for energy pickups
 	UPROPERTY()
@@ -29,10 +31,10 @@ public:
 
 	/** amount of points available to spawn monsters */
 	UPROPERTY(BlueprintReadWrite)
-	int32 MonsterPointsRemaining;
+	int32 ElitePointsRemaining;
 	/** most expensive monster that can spawn at this point in the round */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	int32 MonsterCostLimit;
+	int32 EliteCostLimit;
 
 	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTInventory"))
 	TArray<FStringClassReference> BoostPowerupTypes;
@@ -51,7 +53,8 @@ public:
 	virtual AUTBotPlayer* AddBot(uint8 TeamNum) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
-	virtual void AddMonsters(int32 MaxNum);
+	virtual void AddEliteMonsters(int32 MaxNum);
+	virtual void AddPeonMonsters(int32 Num);
 	UFUNCTION()
 	virtual void EscalateMonsters();
 	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
@@ -60,4 +63,6 @@ public:
 	{}
 	virtual void FindAndMarkHighScorer() override;
 	virtual void HandleRollingAttackerRespawn(AUTPlayerState* OtherPS) override;
+protected:
+	virtual void SpawnMonster(TSubclassOf<AUTMonster> MonsterClass);
 };
