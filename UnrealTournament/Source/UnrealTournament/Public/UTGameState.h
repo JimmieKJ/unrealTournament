@@ -647,6 +647,8 @@ protected:
 
 	bool bRunFPSChart;
 
+	TSharedPtr<FPerformanceTrackingChart> GameplayFPSChart;
+
 	/** Handle to the delegate bound for hitch detection */
 	FDelegateHandle OnHitchDetectedHandle;
 

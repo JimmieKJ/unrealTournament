@@ -903,7 +903,7 @@ void AUTGameState::SortPRIArray()
 
 void AUTGameState::HandleMatchHasStarted()
 {
-	if (GetNetMode() == NM_Client || GetNetMode() == NM_DedicatedServer)
+	if (GetNetMode() == NM_Client || GetNetMode() == NM_DedicatedServer || GetNetMode() == NM_Standalone)
 	{
 		bRunFPSChart = true;
 	}
@@ -942,10 +942,12 @@ void AUTGameState::StartFPSCharts()
 		}
 	}
 
+	OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
+
 	if (bRunFPSChart)
 	{
 		FString FPSChartLabel;
-		if (GetNetMode() == NM_Client)
+		if (GetNetMode() == NM_Client || GetNetMode() == NM_Standalone)
 		{
 			FPSChartLabel = TEXT("UTAnalyticsFPSCharts");
 		}
@@ -953,9 +955,12 @@ void AUTGameState::StartFPSCharts()
 		{
 			FPSChartLabel = TEXT("UTServerFPSChart");
 		}
-		
-		GEngine->StartFPSChart(FPSChartLabel, /*bRecordPerFrameTimes=*/ false);
-		OnHitchDetectedHandle = GEngine->OnHitchDetectedDelegate.AddUObject(this, &AUTGameState::OnHitchDetected);
+
+		if (!GameplayFPSChart.IsValid())
+		{
+			GameplayFPSChart = MakeShareable(new FPerformanceTrackingChart(FDateTime::Now(),FPSChartLabel));
+			GEngine->AddPerformanceDataConsumer(GameplayFPSChart);
+		}
 	}
 }
 
@@ -973,7 +978,7 @@ void AUTGameState::StopFPSCharts()
 		}
 	}
 
-	if (bRunFPSChart)
+	if (bRunFPSChart && GameplayFPSChart.IsValid())
 	{
 		TArray<FAnalyticsEventAttribute> ParamArray;
 		FString MapName;
@@ -983,11 +988,10 @@ void AUTGameState::StopFPSCharts()
 			MapName = GetLevel()->OwningWorld->GetMapName();
 		}
 
-		const bool bIsClient = GetNetMode() == NM_Client;
-		GEngine->StopFPSChart(MapName);
-		// plk - this was hard deprecated
-		//GEngine->DumpFPSChartAnalytics(MapName, ParamArray, bIsClient);
-		
+		const bool bIsClient = (GetNetMode() == NM_Client || GetNetMode() == NM_Standalone);
+
+		GameplayFPSChart->DumpChartToAnalyticsParams(MapName, ParamArray, bIsClient);
+
 		if (bIsClient)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
@@ -1019,6 +1023,10 @@ void AUTGameState::StopFPSCharts()
 				FUTAnalytics::FireEvent_UTServerFPSCharts(UTGM, ParamArray);
 			}
 		}
+
+		GEngine->RemovePerformanceDataConsumer(GameplayFPSChart);
+		GameplayFPSChart.Reset();
+		GameplayFPSChart = nullptr;
 
 		GEngine->OnHitchDetectedDelegate.Remove(OnHitchDetectedHandle);
 		bRunFPSChart = false;
