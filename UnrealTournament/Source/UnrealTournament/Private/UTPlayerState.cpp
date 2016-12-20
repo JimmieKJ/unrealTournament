@@ -3444,10 +3444,10 @@ void AUTPlayerState::OnRepTaunt()
 
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
-		if (DemoDriver && DemoDriver->IsServer())
+		if (DemoDriver)
 		{
 			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
-			if (DemoRecSpec && (GetWorld()->GetTimeSeconds() - DemoRecSpec->LastKillcamSeekTime) < 1.0f)
+			if (DemoRecSpec && (GetWorld()->GetTimeSeconds() - DemoRecSpec->LastKillcamSeekTime) < 2.0f)
 			{
 				return;
 			}
