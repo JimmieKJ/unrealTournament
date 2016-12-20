@@ -199,7 +199,7 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 	FRadialDamageParams Result = Super::GetDamageParams_Implementation(OtherActor, HitLocation, OutMomentum);
 	if (OtherActor == Instigator)
 	{
-		// attenuate self damage and momentum
+		// attenuate self damage
 		Result.BaseDamage = FMath::Max<float>(0.f, Result.BaseDamage - SelfDamageAttenuation * FMath::Max<float>(0.0f, GetWorld()->GetTimeSeconds() - CreationTime - SelfDamageAttenuationDelay));
 	}
 	else
@@ -208,6 +208,7 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 		if (ProjectileMovement->ProjectileGravityScale != 0.f)
 		{
 			Result.BaseDamage *= BounceDamagePct;
+			OutMomentum = 0.f;
 		}
 	}
 	return Result;
