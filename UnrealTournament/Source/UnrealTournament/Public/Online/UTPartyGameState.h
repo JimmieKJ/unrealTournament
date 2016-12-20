@@ -53,6 +53,10 @@ struct FUTPartyRepState : public FPartyState
 	/** Number of players needed on a matchmaking server */
 	UPROPERTY()
 	int32 MatchmakingPlayersNeeded;
+
+	/** Will be true if the game is a ranked game */
+	UPROPERTY()
+	bool bRanked;
 	
 	FUTPartyRepState()
 	{
@@ -60,6 +64,7 @@ struct FUTPartyRepState : public FPartyState
 		PartyType = EPartyType::Public;
 		bLeaderFriendsOnly = false;
 		bLeaderInvitesOnly = false;
+		bRanked = false;
 	}
 
 	/** Reset party back to defaults */
@@ -180,4 +185,10 @@ public:
 	EUTPartyState GetPartyProgression() const { return PartyState.PartyProgression; }
 	int32 GetMatchmakingPlayersNeeded() const { return PartyState.MatchmakingPlayersNeeded; }
 	FString GetMatchmakingRegion() const { return PartyState.MatchmakingRegion; }
+	
+	bool IsMatchRanked()
+	{
+		return PartyState.bRanked;
+	}
+
 };

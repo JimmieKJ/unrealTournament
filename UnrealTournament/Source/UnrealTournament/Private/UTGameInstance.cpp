@@ -536,12 +536,14 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), ControllerId);
 			if (PC)
 			{
+				bool bRanked = false;
 				UUTParty* Parties = GetParties();
 				if (Parties)
 				{
 					UUTPartyGameState* PartyGameState = Parties->GetUTPersistentParty();
 					if (PartyGameState)
 					{
+						bRanked = PartyGameState->IsMatchRanked();
 						URL += TEXT("?PartySize=") + FString::FromInt(PartyGameState->GetPartySize());
 					}
 					//Parties->NotifyPreClientTravel();

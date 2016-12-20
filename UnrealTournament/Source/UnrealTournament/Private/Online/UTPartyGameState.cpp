@@ -78,6 +78,8 @@ void UUTPartyGameState::OnPartyMatchmakingStarted(bool bRanked)
 {
 	if (IsLocalPartyLeader())
 	{
+		PartyState.bRanked = bRanked;
+
 		if (bRanked)
 		{
 			PartyState.PartyProgression = EUTPartyState::Matchmaking;

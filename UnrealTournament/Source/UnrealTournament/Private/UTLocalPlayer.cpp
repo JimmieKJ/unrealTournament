@@ -5358,7 +5358,19 @@ FString UUTLocalPlayer::StripOptionsFromAddress(FString HostAddress) const
 
 void UUTLocalPlayer::Reconnect(bool bSpectator)
 {
-	if (LastSession.IsValid())
+	if (!LastRankedMatchSessionId.IsEmpty())
+	{
+		UMatchmakingContext* MatchmakingContext = Cast<UMatchmakingContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UMatchmakingContext::StaticClass()));
+		if (MatchmakingContext)
+		{
+			MatchmakingContext->AttemptReconnect(LastRankedMatchUniqueId);
+		}
+		LastRankedMatchUniqueId.Empty();
+		LastRankedMatchSessionId.Empty();
+		LastRankedMatchTimeString.Empty();
+		SaveConfig();
+	}
+	else if (LastSession.IsValid())
 	{
 		bAttemptingForceJoin = false;
 		JoinSession(LastSession, bLastSessionWasASpectator);
