@@ -2621,6 +2621,9 @@ void AUTBot::ExecuteWhatToDoNext()
 
 	SCOPE_CYCLE_COUNTER(STAT_AI_ExecuteWhatToDoNext);
 
+	// generally will get replaced but this helps track unintended fallthroughs in the decision code
+	GoalString = FString::Printf(TEXT("WhatToDoNext at %f"), GetWorld()->TimeSeconds);
+
 	Target = NULL;
 	TranslocTarget = FVector::ZeroVector;
 	if (GetCharacter() != NULL)

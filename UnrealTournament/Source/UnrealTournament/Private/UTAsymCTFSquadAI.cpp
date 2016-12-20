@@ -176,6 +176,7 @@ bool AUTAsymCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 		// if not aggressive bot, maybe wait here for allies to rally
 		if (GS->CurrentRallyPoint->RallyTimeRemaining >= 3.0f && FMath::FRand() < 0.5f - 0.5f * B->Personality.Aggressiveness)
 		{
+			B->GoalString = TEXT("Wait for teammates to rally");
 			B->DoCamp();
 			return true;
 		}
