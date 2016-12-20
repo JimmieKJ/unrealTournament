@@ -288,7 +288,7 @@ void AUTFlagRunPvEGame::ScoreKill_Implementation(AController* Killer, AControlle
 				}
 			}
 			GS->ExtraLivesGained++;
-			GS->KillsUntilExtraLife = BaseKillsForExtraLife * (GS->ExtraLivesGained + 1);
+			GS->KillsUntilExtraLife = BaseKillsForExtraLife * (1.0f + 0.5f * GS->ExtraLivesGained);
 			BroadcastLocalized(nullptr, UUTPvEGameMessage::StaticClass(), 1);
 		}
 		GS->ForceNetUpdate();
