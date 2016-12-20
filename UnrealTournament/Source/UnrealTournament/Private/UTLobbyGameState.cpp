@@ -341,11 +341,11 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	{
 		if (bAsSpectator)
 		{
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to spectate it."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStartingSpectate","The match you are trying to spectate is starting.  Please try again after it launches."));	
 		}
 		else
 		{
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to join it again."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please try again after it launches."));	
 		}
 		return;
 	}
