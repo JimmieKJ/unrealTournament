@@ -106,7 +106,7 @@ void UUTDamageType::ScoreKill_Implementation(AUTPlayerState* KillerState, AUTPla
 
 bool UUTDamageType::ShouldGib_Implementation(AUTCharacter* Victim) const
 {
-	return (Victim->Health <= GibHealthThreshold || Victim->LastTakeHitInfo.Damage >= GibDamageThreshold);
+	return (Victim->Health <= GibHealthThreshold || Victim->LastTakeHitInfo.Damage * Victim->LastTakeHitInfo.Count >= GibDamageThreshold);
 }
 
 bool  UUTDamageType::OverrideDeathSound_Implementation(AUTCharacter* Victim) const

@@ -1149,7 +1149,7 @@ bool AUTCharacter::ModifyDamageCaused_Implementation(int32& AppliedDamage, int32
 void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent)
 {
 	// if we haven't replicated a previous hit yet (generally, multi hit within same frame), stack with it
-	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime && DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType) && (GetNetMode() == NM_DedicatedServer);
+	bool bStackHit = (LastTakeHitTime > LastTakeHitReplicatedTime) && (DamageEvent.DamageTypeClass == LastTakeHitInfo.DamageType) && (bTearOff || (GetNetMode() == NM_DedicatedServer));
 	LastTakeHitInfo.Damage = Damage;
 	LastTakeHitInfo.DamageType = DamageEvent.DamageTypeClass;
 	if (!bStackHit || LastTakeHitInfo.HitArmor == NULL)
@@ -1591,6 +1591,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
 			{
 				AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+				// force gib
+				LastTakeHitInfo.Count = 8;
 			}
 
 			GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
