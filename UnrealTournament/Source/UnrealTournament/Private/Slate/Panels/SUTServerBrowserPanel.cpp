@@ -1364,7 +1364,7 @@ void SUTServerBrowserPanel::OnFindLANSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
-	if (!PlayerOwner->IsLoggedIn() && AllInternetServers.Num() == 0 && AllHubServers.Num() == 0)
+	if (!PlayerOwner->IsLoggedIn() && AllInternetServers.Num() == 0 && AllHubServers.Num() == 0 && LanSearchSettings->SearchResults.Num() == 0)
 	{
 		PlayerOwner->ShowAuth();
 	}

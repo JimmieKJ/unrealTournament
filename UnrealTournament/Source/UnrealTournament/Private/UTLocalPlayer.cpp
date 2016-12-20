@@ -2955,33 +2955,26 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	ConnectDesiredTeam = DesiredTeam;
 	bCancelJoinSession = false;
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
-	if (!UniqueId.IsValid())
+
+	bJoinSessionInProgress = true;
+
+	PendingSession = SearchResult;
+	if (OnlineSessionInterface->GetSessionSettings(GameSessionName) != nullptr)
 	{
-		return false;
+		UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
+		bDelayedJoinSession = true;
+		LeaveSession();
 	}
 	else
 	{
+		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
 
-		bJoinSessionInProgress = true;
-
-		PendingSession = SearchResult;
-		if (OnlineSessionInterface->GetSessionSettings(GameSessionName) != nullptr)
-		{
-			UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
-			bDelayedJoinSession = true;
-			LeaveSession();
-		}
-		else
-		{
-			OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
-
-			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
-			bAttemptingForceJoin = false;
-			bCancelJoinSession = false;
-			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
-		}
-		return true;
+		SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
+		bAttemptingForceJoin = false;
+		bCancelJoinSession = false;
+		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 	}
+	return true;
 }
 
 void UUTLocalPlayer::JoinPendingSession()
@@ -3056,7 +3049,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
 		UUTParty* Party = GameInstance->GetParties();
-		if (Party)
+		if (Party && PendingSession.IsValid())
 		{
 			Party->SetSession(LastSession);
 		}

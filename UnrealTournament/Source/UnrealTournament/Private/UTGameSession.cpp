@@ -98,7 +98,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const FUniqueNetIdRe
 		return;
 	}
 	
-	if (!UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTBaseGameMode) == NULL)
+	if (!UniqueId.IsValid() && Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && !FParse::Param(FCommandLine::Get(), TEXT("Lan")) && Cast<AUTLobbyGameMode>(UTBaseGameMode) == NULL)
 	{
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
