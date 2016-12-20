@@ -2890,6 +2890,9 @@ void UUTLocalPlayer::SetShowingFriendsPopup(bool bShowing)
 
 void UUTLocalPlayer::ReturnToMainMenu()
 {
+	PendingQuickmatchType = TEXT("");
+	bQuickmatchOnLevelChange = false;
+
 	HideMenu();
 
 #if !UE_SERVER
