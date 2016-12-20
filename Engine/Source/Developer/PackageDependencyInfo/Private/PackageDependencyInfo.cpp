@@ -1218,7 +1218,8 @@ void FPackageDependencyInfo::RecursiveResolveDependentHash(FPackageDependencyTra
 
 		check(PkgInfo->bInitializedDependencies);
 
-		if ( PkgInfo->TimeStamp < EarliestTime )
+		// PLK work around issue where some shipped /Script packages are timestamped at 0
+		if (PkgInfo->TimeStamp < EarliestTime && PkgInfo->TimeStamp != FDateTime::MinValue())
 		{
 			check( PkgInfo->TimeStamp != FDateTime::MinValue() );
 			EarliestTime = PkgInfo->TimeStamp;
