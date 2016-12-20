@@ -473,13 +473,13 @@ public:
 			return MoveTargetPoints[0];
 		}
 	}
-	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints = TArray<FComponentBasedPosition>());
+	void SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints = TArray<FComponentBasedPosition>(), const FUTPathLink& NewCurrentPath = FUTPathLink());
 	/** set move target and force direct move to that point (don't query the navmesh) */
-	inline void SetMoveTargetDirect(const FRouteCacheItem& NewMoveTarget)
+	inline void SetMoveTargetDirect(const FRouteCacheItem& NewMoveTarget, const FUTPathLink& NewCurrentPath = FUTPathLink())
 	{
 		TArray<FComponentBasedPosition> NewMovePoints;
 		NewMovePoints.Add(FComponentBasedPosition(NewMoveTarget.GetLocation(GetPawn())));
-		SetMoveTarget(NewMoveTarget, NewMovePoints);
+		SetMoveTarget(NewMoveTarget, NewMovePoints, NewCurrentPath);
 		if (GetCharacter() != NULL)
 		{
 			MoveTimer = 1.0f + (NewMoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed;

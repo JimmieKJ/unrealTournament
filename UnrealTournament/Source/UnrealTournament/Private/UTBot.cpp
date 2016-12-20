@@ -1049,12 +1049,12 @@ void AUTBot::UpdateTrackingError(bool bNewEnemy)
 	}
 }
 
-void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints)
+void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FComponentBasedPosition>& NewMovePoints, const FUTPathLink& NewCurrentPath)
 {
 	MoveTarget = NewMoveTarget;
 	MoveTargetPoints = NewMovePoints;
 	bAdjusting = false;
-	CurrentPath = FUTPathLink();
+	CurrentPath = NewCurrentPath;
 	if (NavData == NULL || !NavData->GetPolyCenter(NavData->UTFindNearestPoly(GetPawn()->GetNavAgentLocation(), GetPawn()->GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
 	{
 		LastReachedMovePoint = GetPawn()->GetActorLocation();
@@ -1956,7 +1956,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 						( !UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime < 5.0f || HasOtherVisibleEnemy()) &&
 							Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f ) )
 				{
-					if (FMath::FRand() < 0.5f + 0.5f * Personality.Jumpiness && (Enemy == NULL || Impact.Actor != Enemy))
+					if (FMath::FRand() < 0.4f + 0.4f * Personality.Jumpiness && (Enemy == NULL || Impact.Actor != Enemy))
 					{
 						FVector Start = GetPawn()->GetActorLocation();
 						// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness

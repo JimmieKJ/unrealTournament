@@ -166,10 +166,12 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 			if (!LiftVelocity.IsZero())
 			{
 				UUTReachSpec_Lift* LiftPath = NULL;
+				FUTPathLink LiftPathLink;
 				int32 ExitRouteIndex = INDEX_NONE;
 				if ((B->GetCurrentPath().ReachFlags & R_JUMP) && B->GetCurrentPath().Spec.IsValid())
 				{
 					LiftPath = Cast<UUTReachSpec_Lift>(B->GetCurrentPath().Spec.Get());
+					LiftPathLink = B->GetCurrentPath();
 				}
 				// see if bot's next path is a lift jump (need to check this for fast moving lifts, because CurrentPath won't change until bot reaches lift center which in certain cases might be too late)
 				else if (B->GetMoveTarget().Node != NULL)
@@ -181,6 +183,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 							int32 LinkIndex = B->GetMoveTarget().Node->GetBestLinkTo(B->GetMoveTarget().TargetPoly, B->RouteCache[i + 1], CharacterOwner, CharacterOwner->GetNavAgentPropertiesRef(), GetUTNavData(GetWorld()));
 							if (LinkIndex != INDEX_NONE && (B->GetMoveTarget().Node->Paths[LinkIndex].ReachFlags & R_JUMP) && B->GetMoveTarget().Node->Paths[LinkIndex].Spec.IsValid())
 							{
+								LiftPathLink = B->GetMoveTarget().Node->Paths[LinkIndex];
 								LiftPath = Cast<UUTReachSpec_Lift>(B->GetMoveTarget().Node->Paths[LinkIndex].Spec.Get());
 								ExitRouteIndex = i + 1;
 							}
@@ -300,7 +303,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 						{
 							TArray<FComponentBasedPosition> MovePoints;
 							new(MovePoints) FComponentBasedPosition(LiftPath->LiftExitLoc);
-							B->SetMoveTarget(B->RouteCache[ExitRouteIndex], MovePoints);
+							B->SetMoveTarget(B->RouteCache[ExitRouteIndex], MovePoints, LiftPathLink);
 						}
 						else if (B->GetMoveBasedPosition().Base != NULL && B->GetMoveBasedPosition().Base->GetOwner() == LiftPath->Lift)
 						{
@@ -311,7 +314,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 						else
 						{
 							// this makes sure the bot skips any leftover point on the lift center that it doesn't need anymore
-							B->SetMoveTargetDirect(B->GetMoveTarget());
+							B->SetMoveTargetDirect(B->GetMoveTarget(), B->GetCurrentPath());
 						}
 					}
 				}
