@@ -207,7 +207,7 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 
 	FString BuildVersion = FApp::GetBuildVersion();
 	int32 Pos = -1;
-	if (BuildVersion.FindLastChar('-', Pos)) BuildVersion = BuildVersion.Right(BuildVersion.Len() - (Pos + 2));
+	if (BuildVersion.FindLastChar('-', Pos)) BuildVersion = BuildVersion.Right(BuildVersion.Len() - (Pos + 1));
 
 	TSharedPtr<SOverlay> Final;
 	TSharedPtr<SHorizontalBox> QuickPlayBox;
