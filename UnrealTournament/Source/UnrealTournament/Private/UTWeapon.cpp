@@ -25,6 +25,7 @@
 #include "UTAnnouncer.h"
 #include "UTProj_ShockBall.h"
 #include "UTTeamDeco.h"
+#include "UTProj_WeaponScreen.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -1629,6 +1630,11 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 						NewSkipActorCount = SkipActorCount--;
 					}
 				}
+				else if (Cast<AUTProj_WeaponScreen>(Hit.Actor.Get()) != nullptr && GS != nullptr && GS->OnSameTeam(UTOwner, ((AUTProj_WeaponScreen*)Hit.Actor.Get())->Instigator))
+				{
+					QueryParams.AddIgnoredActor(Hit.Actor.Get());
+					NewSkipActorCount = SkipActorCount--;
+				}
 			}
 			SkipActorCount = NewSkipActorCount;
 		}
@@ -1660,6 +1666,11 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 							QueryParams.AddIgnoredActor(Hit.Actor.Get());
 							NewSkipActorCount = SkipActorCount--;
 						}
+					}
+					else if (Cast<AUTProj_WeaponScreen>(Hit.Actor.Get()) != nullptr && GS != nullptr && GS->OnSameTeam(UTOwner, ((AUTProj_WeaponScreen*)Hit.Actor.Get())->Instigator))
+					{
+						QueryParams.AddIgnoredActor(Hit.Actor.Get());
+						NewSkipActorCount = SkipActorCount--;
 					}
 				}
 			}
