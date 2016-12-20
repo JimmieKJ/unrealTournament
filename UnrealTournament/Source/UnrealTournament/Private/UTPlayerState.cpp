@@ -3442,6 +3442,18 @@ void AUTPlayerState::OnRepTaunt()
 		return;
 	}
 
+	if (GetWorld()->GetNetMode() == NM_Client)
+	{
+		if (DemoDriver && DemoDriver->IsServer())
+		{
+			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
+			if (DemoRecSpec && (GetWorld()->GetTimeSeconds() - DemoRecSpec->LastKillcamSeekTime) < 1.0f)
+			{
+				return;
+			}
+		}
+	}
+
 	if (EmoteReplicationInfo.EmoteCount > 0)
 	{
 		PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
