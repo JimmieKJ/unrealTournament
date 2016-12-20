@@ -2757,7 +2757,7 @@ void AUTCharacter::AllAmmo()
 AUTInventory* AUTCharacter::K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate)
 {
 	AUTInventory* Inv = NULL;
-	if (NewInvClass != NULL)
+	if (NewInvClass != NULL && !NewInvClass.GetDefaultObject()->HandleGivenTo(this))
 	{
 		Inv = GetWorld()->SpawnActor<AUTInventory>(NewInvClass);
 		if (Inv != NULL)
@@ -3388,13 +3388,13 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 			// Use the Spawn Inventory
 			if (UTPlayerState->PrimarySpawnInventory)
 			{
-				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->PrimarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+				CreateInventory(UTPlayerState->PrimarySpawnInventory->ItemClass);
 			}
 
 			// Use the Spawn Inventory
 			if (UTPlayerState->SecondarySpawnInventory)
 			{
-				AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->SecondarySpawnInventory->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+				CreateInventory(UTPlayerState->SecondarySpawnInventory->ItemClass);
 			}
 
 			return;
@@ -3406,7 +3406,7 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 			{
 				if (UTPlayerState->GetAvailableCurrency() >= UTPlayerState->Loadout[i]->CurrentCost)
 				{
-					AddInventory(GetWorld()->SpawnActor<AUTInventory>(UTPlayerState->Loadout[i]->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+					CreateInventory(UTPlayerState->Loadout[i]->ItemClass);
 					UTPlayerState->AdjustCurrency(UTPlayerState->Loadout[i]->CurrentCost * -1);
 				}
 			}
@@ -3426,7 +3426,7 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 					for (int32 i=0; i < UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache.Num(); i++)
 					{
 						AUTReplicatedLoadoutInfo* Info = UTGameMode->AvailableLoadoutPacks[PackIndex].LoadoutCache[i];
-						AddInventory(GetWorld()->SpawnActor<AUTInventory>(Info->ItemClass, FVector(0.0f), FRotator(0, 0, 0)), true);
+						CreateInventory(Info->ItemClass);
 					}
 
 					Health += UTGameMode->AvailableLoadoutPacks[PackIndex].SpawnHealthModifier;
@@ -3450,13 +3450,13 @@ void AUTCharacter::AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> Default
 	// Add the default character inventory
 	for (int32 i=0;i<DefaultCharacterInventory.Num();i++)
 	{
-		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultCharacterInventory[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+		CreateInventory(DefaultCharacterInventory[i]);
 	}
 
 	// Add the default inventory passed in from the game
 	for (int32 i=0;i<DefaultInventoryToAdd.Num();i++)
 	{
-		AddInventory(GetWorld()->SpawnActor<AUTInventory>(DefaultInventoryToAdd[i], FVector(0.0f), FRotator(0, 0, 0)), true);
+		CreateInventory(DefaultInventoryToAdd[i]);
 	}
 }
 
