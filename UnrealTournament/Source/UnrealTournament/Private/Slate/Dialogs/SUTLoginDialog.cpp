@@ -537,6 +537,20 @@ EVisibility SUTLoginDialog::GetLoadingVis() const
 
 void SUTLoginDialog::SetErrorText(FText NewErrorText)
 {
+	// Parse out the error text.
+
+	FString ErrorAsString = NewErrorText.ToString();
+	int32 ErrorCodePos = INDEX_NONE;
+	if ( ErrorAsString.FindLastChar(TEXT('='),ErrorCodePos) )
+	{
+		ErrorAsString.RemoveAt(0,ErrorCodePos+1);
+		ErrorAsString = ErrorAsString.Trim();
+		if ( ErrorAsString == TEXT("18031") )
+		{
+			NewErrorText = NSLOCTEXT("SUTLoginDialog","BadCredentials","The Username or Password you have entered was not found.");
+		}
+	}
+
 	ErrorText->SetText(NewErrorText);
 }
 
