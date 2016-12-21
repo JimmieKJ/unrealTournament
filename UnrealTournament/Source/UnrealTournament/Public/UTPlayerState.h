@@ -802,6 +802,9 @@ private:
 	/** map of additional stats used for scoring display. */
 	TMap< FName, float > StatsData;
 
+	/** map of per round stats used for scoring display. GameMode/scoring responsible for clearing this between rounds. */
+	TMap< FName, float > RoundStatsData;
+
 public:
 	/** Last time StatsData was updated - used when replicating the data. */
 	UPROPERTY()
@@ -810,6 +813,11 @@ public:
 	/** Accessors for StatsData. */
 	UFUNCTION(BlueprintCallable, Category = PlayerState)
 	float GetStatsValue(FName StatsName) const;
+
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
+		float GetRoundStatsValue(FName StatsName) const;
+
+	void ClearRoundStats();
 
 	void SetStatsValue(FName StatsName, float NewValue);
 	void ModifyStatsValue(FName StatsName, float Change);

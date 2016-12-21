@@ -592,6 +592,7 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 			if (PS)
 			{
 				PS->ActiveGroupTaunt = nullptr;
+				PS->ClearRoundStats();
 			}
 		}
 	}
@@ -804,6 +805,10 @@ void AUTCTFRoundGame::SetPlayerStateInactive(APlayerState* NewPlayerState)
 	if (PS && !PS->bOnlySpectator && UTGameState && UTGameState->IsMatchIntermission())
 	{
 		PS->RemainingLives = RoundLives;
+	}
+	if (PS)
+	{
+		PS->ClearRoundStats();
 	}
 }
 

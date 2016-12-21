@@ -3311,9 +3311,19 @@ void AUTPlayerState::UpdateSpecialTacComFor(AUTCharacter* Character, AUTPlayerCo
 	Character->SetOutlineLocal(bSpecialPlayer || (bSpecialTeamPlayer && UTPC && UTPC->GetTeamNum() == GetTeamNum()), true);
 }
 
+void AUTPlayerState::ClearRoundStats()
+{
+	RoundStatsData.Empty();
+}
+
 float AUTPlayerState::GetStatsValue(FName StatsName) const
 {
 	return StatsData.FindRef(StatsName);
+}
+
+float AUTPlayerState::GetRoundStatsValue(FName StatsName) const
+{
+	return RoundStatsData.FindRef(StatsName);
 }
 
 void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
@@ -3323,6 +3333,7 @@ void AUTPlayerState::SetStatsValue(FName StatsName, float NewValue)
 	{
 		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 		StatsData.Add(StatsName, NewValue);
+		RoundStatsData.Add(StatsName, NewValue);
 	}
 }
 
@@ -3334,6 +3345,8 @@ void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 		LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 		float CurrentValue = StatsData.FindRef(StatsName);
 		StatsData.Add(StatsName, CurrentValue + Change);
+		float CurrentRoundValue = RoundStatsData.FindRef(StatsName);
+		RoundStatsData.Add(StatsName, CurrentRoundValue + Change);
 	}
 }
 
