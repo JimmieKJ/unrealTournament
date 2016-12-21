@@ -14,6 +14,7 @@
 #include "UTPickupHealth.h"
 #include "UTPickupMessage.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
+#include "UTATypes.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -558,6 +559,11 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						}
 						UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 						SetRallyPointState(RallyPointStates::Powered);
+						AUTPlayerState* PS = Cast<AUTPlayerState>(NearbyFC->PlayerState);
+						if (PS)
+						{
+							PS->ModifyStatsValue(NAME_RalliesPowered, 1);
+						}
 						RallyStartTime = GetWorld()->GetTimeSeconds();
 						RallyTimeRemaining = MinimumRallyTime;
 						ReplicatedRallyTimeRemaining = MinimumRallyTime;

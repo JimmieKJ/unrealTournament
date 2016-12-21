@@ -69,7 +69,11 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 	if (GM)
 	{
 		APlayerState* InstigatorPS = InstigatorController ? InstigatorController->PlayerState : NULL;
-		APlayerState* InstigatedbyPS = InstigatedBy ? InstigatedBy->PlayerState : NULL;
+		AUTPlayerState* InstigatedbyPS = InstigatedBy ? Cast<AUTPlayerState>(InstigatedBy->PlayerState) : NULL;
+		if (InstigatedbyPS)
+		{
+			InstigatedbyPS->ModifyStatsValue(NAME_RedeemerRejected, 1);
+		}
 		GM->BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 0, InstigatedbyPS, InstigatorPS, NULL);
 	}
 }

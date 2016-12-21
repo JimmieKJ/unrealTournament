@@ -19,6 +19,12 @@ void AUTFlagRunScoring::BeginPlay()
 
 void AUTFlagRunScoring::FlagHeldTimer()
 {
+	AUTFlagRunGameState* CTFGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTCarriedObject* Flag = CTFGameState ? CTFGameState->GetOffenseFlag() : nullptr;
+	if (Flag && Flag->Holder)
+	{
+		Flag->Holder->ModifyStatsValue(NAME_FlagHeldTime, 1.f);
+	}
 }
 
 void AUTFlagRunScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 FlagCapScore)
@@ -52,57 +58,42 @@ void AUTFlagRunScoring::ScoreObjective(AUTGameObjective* GameObjective, AUTChara
 
 }
 
-/** Save partial credit for flag carrier damage. */
 void AUTFlagRunScoring::ScoreDamage(int32 DamageAmount, AUTPlayerState* VictimPS, AUTPlayerState* AttackerPS)
 {
+	if (!VictimPS || !VictimPS->CarriedObject || (DamageAmount <= 0))
+	{
+		return;
+	}
+	if (AttackerPS && (AttackerPS != VictimPS))
+	{
+		AttackerPS->LastShotFCTime = GetWorld()->GetTimeSeconds();
+		AttackerPS->LastShotFC = VictimPS;
+		AttackerPS->ModifyStatsValue(NAME_EnemyFCDamage, DamageAmount);
+	}
 }
 
 void AUTFlagRunScoring::ScoreKill(AController* Killer, AController* Victim, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+	AUTFlagRunGameState* CTFGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTPlayerState* VictimPS = Victim ? Cast<AUTPlayerState>(Victim->PlayerState) : NULL;
+	AUTPlayerState* KillerPS = Killer ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+	if (VictimPS && KillerPS && (VictimPS != KillerPS) && CTFGameState && !CTFGameState->OnSameTeam(Killer, Victim))
+	{
+		if (KillerPS->Team)
+		{
+			KillerPS->Team->ModifyStatsValue(NAME_TeamKills, 1);
+		}
+		if (VictimPS->CarriedObject)
+		{
+			KillerPS->LastKilledFCTime = GetWorld()->GetTimeSeconds();
+			// bonus based on flag hold time
+			KillerPS->ModifyStatsValue(NAME_FCKills, 1);
+		}
+	}
+	if (VictimPS)
+	{
+		VictimPS->LastShotFCTime = 0.f;
+		VictimPS->LastShotFC = NULL;
+	}
 }
 
-void AUTFlagRunScoring::Reset_Implementation()
-{
-
-}
-/*
-round kills
-round kill assists
-round total kills
-rallies (round and total)
-rallies powered (round and total)
-round FC kills
-round damage caused
-round flag held time
-round denials
-total denials
-
-also per round multikills, sprees, etc
-
-static const FName NAME_FlagCaptures(TEXT("FlagCaptures"));
-static const FName NAME_FlagReturns(TEXT("FlagReturns"));
-static const FName NAME_FlagAssists(TEXT("FlagAssists"));
-static const FName NAME_FlagHeldDeny(TEXT("FlagHeldDeny"));
-static const FName NAME_FlagHeldDenyTime(TEXT("FlagHeldDenyTime"));
-static const FName NAME_FlagHeldTime(TEXT("FlagHeldTime"));
-static const FName NAME_FlagReturnPoints(TEXT("FlagReturnPoints"));
-static const FName NAME_CarryAssist(TEXT("CarryAssist"));
-static const FName NAME_CarryAssistPoints(TEXT("CarryAssistPoints"));
-static const FName NAME_FlagCapPoints(TEXT("FlagCapPoints"));
-static const FName NAME_DefendAssist(TEXT("DefendAssist"));
-static const FName NAME_DefendAssistPoints(TEXT("DefendAssistPoints"));
-static const FName NAME_ReturnAssist(TEXT("ReturnAssist"));
-static const FName NAME_ReturnAssistPoints(TEXT("ReturnAssistPoints"));
-static const FName NAME_TeamCapPoints(TEXT("TeamCapPoints"));
-static const FName NAME_EnemyFCDamage(TEXT("EnemyFCDamage"));
-static const FName NAME_FCKills(TEXT("FCKills"));
-static const FName NAME_FCKillPoints(TEXT("FCKillPoints"));
-static const FName NAME_FlagSupportKills(TEXT("FlagSupportKills"));
-static const FName NAME_FlagSupportKillPoints(TEXT("FlagSupportKillPoints"));
-static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
-static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
-static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
-static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
-static const FName NAME_RalliesPowered(TEXT("RalliesPowered"));
-static const FName NAME_Rallies(TEXT("Rallies"));
-*/

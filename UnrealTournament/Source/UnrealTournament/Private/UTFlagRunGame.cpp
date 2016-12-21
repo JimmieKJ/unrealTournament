@@ -783,6 +783,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AController* C)
 			{
 				GS->bEnemyRallyPointIdentified = true;
 			}
+			UTPlayerState->ModifyStatsValue(NAME_Rallies, 1);
 			
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{

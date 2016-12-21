@@ -7,7 +7,7 @@
 #include "UTFlagRunScoring.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTFlagRunScoring : public AUTBaseScoring, public IUTResetInterface
+class UNREALTOURNAMENT_API AUTFlagRunScoring : public AUTBaseScoring
 {
 	GENERATED_UCLASS_BODY()
 
@@ -19,5 +19,4 @@ class UNREALTOURNAMENT_API AUTFlagRunScoring : public AUTBaseScoring, public IUT
 	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, int32 FlagCapScore = 1) override;
 	virtual void ScoreObjective(AUTGameObjective* GameObjective, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 ObjectiveScore) override;
-	virtual void Reset_Implementation() override;
 };

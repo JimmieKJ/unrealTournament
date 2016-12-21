@@ -104,6 +104,8 @@ static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
 static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
 static const FName NAME_RalliesPowered(TEXT("RalliesPowered"));
 static const FName NAME_Rallies(TEXT("Rallies"));
+static const FName NAME_FlagDenials(TEXT("FlagDenials"));
+static const FName NAME_RedeemerRejected(TEXT("RedeemerRejected"));
 
 
 const FName NAME_Custom = FName(TEXT("Custom"));
