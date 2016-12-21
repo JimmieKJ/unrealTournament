@@ -61,6 +61,20 @@ static TAutoConsoleVariable<int32> CVarAMDDisableAsyncTextureCreation(
 	TEXT("Changes will only take effect in new game/editor instances - can't be changed at runtime.\n"),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> CVarNVidiaTimestampWorkaround(
+	TEXT("r.NVIDIATimestampWorkaround"),
+	1,
+	TEXT("If true we disable timestamps on pre-maxwell hardware (workaround for driver bug)\n"),
+	ECVF_Default);
+
+int32 GDX11ForcedGPUs = -1;
+static FAutoConsoleVariableRef CVarDX11NumGPUs(
+	TEXT("r.DX11NumForcedGPUs"),
+	GDX11ForcedGPUs,
+	TEXT("Num Forced GPUs."),
+	ECVF_Default
+	);
+
 /**
  * Console variables used by the D3D11 RHI device.
  */
@@ -867,6 +881,18 @@ void FD3D11DynamicRHI::InitD3DDevice()
 		if (IsRHIDeviceAMD() && CVarAMDDisableAsyncTextureCreation.GetValueOnAnyThread())
 		{
 			GRHISupportsAsyncTextureCreation = false;
+		}
+
+		if( IsRHIDeviceNVIDIA() && CVarNVidiaTimestampWorkaround.GetValueOnAnyThread() )
+		{
+			// Workaround for pre-maxwell TDRs with realtime GPU stats (timestamp queries)
+			// @TODO remove this when these issues are fixed
+			// Note: 0x1300 corresponds to Maxwell hardware or above
+			if ( GRHIDeviceId < 0x1300 ) 
+			{
+				UE_LOG(LogD3D11RHI, Warning, TEXT("Timestamp queries are currently disabled on this hardware due to instability. Realtime GPU stats will not be available. You can override this behaviour by setting r.NVIDIATimestampWorkaround to 0"));
+				GSupportsTimestampRenderQueries = false;
+			}
 		}
 
 #if PLATFORM_DESKTOP
