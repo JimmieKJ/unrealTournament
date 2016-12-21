@@ -364,7 +364,7 @@ int32* FStreamingTextureLevelContext::GetBuildDataIndexRef(UTexture2D* Texture2D
 		}
 
 		FTextureBoundState& BoundState = BoundStates[Texture2D->LevelIndex];
-		check(BoundState.Texture == Texture2D);
+		check(BoundState.Texture == nullptr || BoundState.Texture == Texture2D);
 
 		if (BoundState.BuildDataTimestamp == BuildDataTimestamp)
 		{
