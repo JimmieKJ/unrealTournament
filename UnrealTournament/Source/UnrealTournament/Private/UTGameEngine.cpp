@@ -24,6 +24,7 @@
 #undef ERROR_IO_PENDING
 #undef E_NOTIMPL
 #undef E_FAIL
+#undef S_OK
 #include "WindowsHWrapper.h"
 #endif
 
