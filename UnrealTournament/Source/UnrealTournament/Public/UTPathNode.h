@@ -208,11 +208,7 @@ struct FUTPathLink
 		: Start(InStart), StartEdgePoly(InStartEdgePoly), End(InEnd), EndPoly(InEndPoly), Spec(InSpec), CollisionRadius(InRadius), CollisionHeight(InHeight), ReachFlags(InFlags)
 	{}
 	FUTPathLink(const FUTPathLink& Other) = default;
-	FUTPathLink& operator= (const FUTPathLink& Other)
-	{
-		new(this) FUTPathLink(Other);
-		return *this;
-	}
+	FUTPathLink& operator= (const FUTPathLink& Other) = default;
 };
 
 UCLASS(NotPlaceable)
