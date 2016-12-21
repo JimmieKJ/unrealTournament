@@ -935,6 +935,8 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
 			if (DemoRecSpec && (GetWorld()->GetTimeSeconds() - DemoRecSpec->LastKillcamSeekTime) < 2.0f)
 			{
+				bExploded = true;
+				Destroy();
 				return;
 			}
 		}
