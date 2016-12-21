@@ -12,7 +12,10 @@ class UNREALTOURNAMENT_API AUTBaseScoring : public AInfo
 	virtual void InitFor(class AUTGameMode* Game);
 
 	/** Called when game object scores (i.e. flag cap). */
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit, int32 FlagCapScore);
+	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 FlagCapScore);
+
+	/** Called when game object scores (i.e. flag cap). */
+	virtual void ScoreObjective(AUTGameObjective* GameObjective, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 ObjectiveScore);
 
 	/** Called when player causes damage. */
 	virtual void ScoreDamage(int32 DamageAmount, AUTPlayerState* VictimPS, AUTPlayerState* AttackerPS);

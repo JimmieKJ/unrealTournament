@@ -89,7 +89,7 @@ float AUTCTFScoring::GetTotalHeldTime(AUTCarriedObject* GameObject)
 	return TotalHeldTime;
 }
 
-void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit, int32 FlagCapScore)
+void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 FlagCapScore)
 {
 	if (!CTFGameState)
 	{

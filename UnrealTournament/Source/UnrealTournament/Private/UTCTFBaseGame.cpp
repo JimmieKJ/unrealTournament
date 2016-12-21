@@ -229,7 +229,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchIntermission())
 	{
 		int32 NewFlagCapScore = GetFlagCapScore();
-		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, TimeLimit, NewFlagCapScore);
+		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, NewFlagCapScore);
 
 		if (BaseMutator != NULL)
 		{

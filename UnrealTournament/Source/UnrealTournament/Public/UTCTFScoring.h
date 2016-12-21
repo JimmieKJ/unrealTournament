@@ -80,7 +80,7 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AUTBaseScoring
 	virtual void InitFor(class AUTGameMode* Game) override;
 	virtual void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;
 	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit, int32 FlagCapScore=1) override;
+	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, int32 FlagCapScore=1) override;
 
 	virtual bool WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* KilledPawn, AUTPlayerState *KillerPS);
 

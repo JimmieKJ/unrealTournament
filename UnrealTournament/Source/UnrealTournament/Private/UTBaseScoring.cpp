@@ -12,9 +12,12 @@ void AUTBaseScoring::InitFor(class AUTGameMode* Game)
 {
 }
 
-void AUTBaseScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, float TimeLimit, int32 FlagCapScore)
+void AUTBaseScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 FlagCapScore)
 {
 }
+
+void AUTBaseScoring::ScoreObjective(AUTGameObjective* GameObjective, AUTCharacter* ScoringPawn, AUTPlayerState* ScorerPS, FName Reason, int32 ObjectiveScore)
+{}
 
 /** Save partial credit for flag carrier damage. */
 void AUTBaseScoring::ScoreDamage(int32 DamageAmount, AUTPlayerState* VictimPS, AUTPlayerState* AttackerPS)

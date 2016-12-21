@@ -102,6 +102,8 @@ static const FName NAME_RegularKillPoints(TEXT("RegularKillPoints"));
 static const FName NAME_FlagGrabs(TEXT("FlagGrabs"));
 static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
 static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
+static const FName NAME_RalliesPowered(TEXT("RalliesPowered"));
+static const FName NAME_Rallies(TEXT("Rallies"));
 
 
 const FName NAME_Custom = FName(TEXT("Custom"));
