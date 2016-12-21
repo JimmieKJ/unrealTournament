@@ -17,7 +17,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 
 	/** Class of GameState associated with this GameMode. */
 	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category = Classes)
-		TSubclassOf<class AUTCTFScoring> CTFScoringClass;
+		TSubclassOf<class AUTBaseScoring> CTFScoringClass;
 
 	/** Handles individual player scoring */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)

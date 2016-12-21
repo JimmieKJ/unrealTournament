@@ -20,8 +20,9 @@
 #include "UTAssistMessage.h"
 #include "UTLineUpHelper.h"
 #include "UTLineUpZone.h"
-#include "UTCTFScoring.h"
 #include "UTCharacter.h"
+#include "StatNames.h"
+#include "UTATypes.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -35,7 +36,7 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 	MapPrefix = TEXT("CTF");
 	SquadType = AUTCTFSquadAI::StaticClass();
-	CTFScoringClass = AUTCTFScoring::StaticClass();
+	CTFScoringClass = AUTBaseScoring::StaticClass();
 	IntermissionDuration = 10.f;
 	FlagCapScore = 1;
 

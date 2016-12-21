@@ -41,6 +41,7 @@
 #include "UTAnalytics.h"
 #include "UTRallyPoint.h"
 #include "UTRemoteRedeemer.h"
+#include "UTFlagRunScoring.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -65,6 +66,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bGameHasImpactHammer = false;
 	FlagPickupDelay = 15;
 	bTrackKillAssists = true;
+	CTFScoringClass = AUTFlagRunScoring::StaticClass();
 
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));

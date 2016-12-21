@@ -20,6 +20,7 @@
 #include "UTCTFScoreboard.h"
 #include "SNumericEntryBox.h"
 #include "UTCharacterVoice.h"
+#include "UTCTFScoring.h"
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -32,6 +33,7 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	TimeLimit = 14;
 	QuickPlayersToStart = 8;
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
+	CTFScoringClass = AUTCTFScoring::StaticClass();
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
