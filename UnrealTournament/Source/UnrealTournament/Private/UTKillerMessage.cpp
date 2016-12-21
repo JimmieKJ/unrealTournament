@@ -49,10 +49,6 @@ void UUTKillerMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, F
 
 FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	if (Switch == -99)
-	{
-		return GetDefault<UUTKillerMessage>(GetClass())->SpecKilledText;
-	}
 	return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
