@@ -500,6 +500,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Game")
 		void AddMinorHighlights(AUTPlayerState* PS);
 
+	virtual int32 NumHighlightsNeeded();
+
 	virtual FText FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index);
 
 	/** Return short version of top highlight for that player. */

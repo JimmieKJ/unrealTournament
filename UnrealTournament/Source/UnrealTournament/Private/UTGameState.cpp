@@ -1882,7 +1882,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
 
-			if (PS->Score >(TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
+			if (PS->Score > (TopScorer[TeamIndex] ? TopScorer[TeamIndex]->Score : 0))
 			{
 				TopScorer[TeamIndex] = PS;
 			}
@@ -1930,11 +1930,11 @@ void AUTGameState::UpdateHighlights_Implementation()
 			{
 				BestComboPS = PS;
 			}
-			if (PS->GetStatsValue(NAME_SniperHeadshotKills) > (MostHeadShotsPS ? MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills) : 0.f))
+			if (PS->GetStatsValue(NAME_SniperHeadshotKills) > (MostHeadShotsPS ? MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills) : 2.f))
 			{
 				MostHeadShotsPS = PS;
 			}
-			if (PS->GetStatsValue(NAME_AirRox) > (MostAirRoxPS ? MostAirRoxPS->GetStatsValue(NAME_AirRox) : 0.f))
+			if (PS->GetStatsValue(NAME_AirRox) > (MostAirRoxPS ? MostAirRoxPS->GetStatsValue(NAME_AirRox) : 2.f))
 			{
 				MostAirRoxPS = PS;
 			}
@@ -2004,18 +2004,15 @@ void AUTGameState::UpdateHighlights_Implementation()
 				PS->AddMatchHighlight(HighlightNames::LeastDeaths, LeastDeaths->Deaths);
 			}
 
-			// remove fourth highlight if not major
-			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 2.f))
+			//remove extra highlights
+			int32 Index = 4;
+			while (Index >= NumHighlightsNeeded())
 			{
-				PS->MatchHighlights[4] = NAME_None;
-				PS->MatchHighlightData[4] = 0.f;
-			}
-
-			// remove fifth highlight if not major
-			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 3.f))
-			{
-				PS->MatchHighlights[4] = NAME_None;
-				PS->MatchHighlightData[4] = 0.f;
+				if ((PS->MatchHighlights[Index] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[Index]) < 2.f))
+				{
+					PS->MatchHighlights[Index] = NAME_None;
+					PS->MatchHighlightData[Index] = 0.f;
+				}
 			}
 
 			if (PS->MatchHighlights[0] == NAME_None)
@@ -2052,10 +2049,15 @@ void AUTGameState::UpdateHighlights_Implementation()
 	}
 }
 
+int32 AUTGameState::NumHighlightsNeeded()
+{
+	return 3;
+}
+
 void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
-	if (PS->MatchHighlights[3] != NAME_None)
+	if (PS->MatchHighlights[NumHighlightsNeeded()] != NAME_None)
 	{
 		return;
 	}
@@ -2080,22 +2082,25 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	{
 		AUTWeapon* DefaultWeapon = PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>();
 		int32 WeaponKills = DefaultWeapon->GetWeaponKillStats(PS);
-		bool bIsBestOverall = true;
-		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		if (WeaponKills > 2)
 		{
-			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArray[i]);
-			if (OtherPS && (PS != OtherPS) && (DefaultWeapon->GetWeaponKillStats(OtherPS) > WeaponKills))
+			bool bIsBestOverall = true;
+			for (int32 i = 0; i < PlayerArray.Num(); i++)
 			{
-				bIsBestOverall = false;
-				break;
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArray[i]);
+				if (OtherPS && (PS != OtherPS) && (DefaultWeapon->GetWeaponKillStats(OtherPS) > WeaponKills))
+				{
+					bIsBestOverall = false;
+					break;
+				}
 			}
-		}
-		if (bIsBestOverall)
-		{
-			PS->AddMatchHighlight(HighlightNames::MostWeaponKills, WeaponKills);
-			if (PS->MatchHighlights[3] != NAME_None)
+			if (bIsBestOverall)
 			{
-				return;
+				PS->AddMatchHighlight(HighlightNames::MostWeaponKills, WeaponKills);
+				if (PS->MatchHighlights[3] != NAME_None)
+				{
+					return;
+				}
 			}
 		}
 	}
