@@ -2,7 +2,7 @@
 
 #pragma once
 #include "UTCTFGameState.h"
-#include "UTCTFScoring.h"
+#include "UTBaseScoring.h"
 #include "UTTeamGameMode.h"
 #include "UTCTFBaseGame.generated.h"
 
@@ -21,7 +21,7 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 
 	/** Handles individual player scoring */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		AUTCTFScoring* CTFScoring;
+		AUTBaseScoring* CTFScoring;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 		int32 IntermissionDuration;

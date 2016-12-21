@@ -33,6 +33,11 @@ void AUTCTFScoring::BeginPlay()
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCTFScoring::FlagHeldTimer, 1.0f, true);
 }
 
+void AUTCTFScoring::InitFor(class AUTGameMode* Game)
+{
+	CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
+}
+
 void AUTCTFScoring::FlagHeldTimer()
 {
 	if (!CTFGameState || !CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission())

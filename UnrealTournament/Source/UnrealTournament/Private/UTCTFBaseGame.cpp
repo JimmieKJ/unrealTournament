@@ -20,6 +20,7 @@
 #include "UTAssistMessage.h"
 #include "UTLineUpHelper.h"
 #include "UTLineUpZone.h"
+#include "UTCTFScoring.h"
 #include "UTCharacter.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
@@ -60,8 +61,8 @@ void AUTCTFBaseGame::PreInitializeComponents()
 
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Instigator = Instigator;
-	CTFScoring = GetWorld()->SpawnActor<AUTCTFScoring>(CTFScoringClass, SpawnInfo);
-	CTFScoring->CTFGameState = CTFGameState;
+	CTFScoring = GetWorld()->SpawnActor<AUTBaseScoring>(CTFScoringClass, SpawnInfo);
+	CTFScoring->InitFor(this);
 }
 
 void AUTCTFBaseGame::InitGameState()

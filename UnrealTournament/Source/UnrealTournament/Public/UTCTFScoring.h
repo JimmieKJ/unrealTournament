@@ -2,6 +2,7 @@
 /** Handles individual scoring in CTF matches. */
 
 #pragma once
+#include "UTBaseScoring.h"
 #include "UTCTFScoring.generated.h"
 
 static const FName NAME_FlagCaptures(TEXT("FlagCaptures"));
@@ -31,7 +32,7 @@ static const FName NAME_TeamFlagGrabs(TEXT("TeamFlagGrabs"));
 static const FName NAME_TeamFlagHeldTime(TEXT("TeamFlagHeldTime"));
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
+class UNREALTOURNAMENT_API AUTCTFScoring : public AUTBaseScoring
 {
 	GENERATED_UCLASS_BODY()
 
@@ -100,9 +101,11 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 
 	virtual void BeginPlay() override;
 	virtual void FlagHeldTimer();
-	virtual void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker);
-	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit, int32 FlagCapScore=1);
+
+	virtual void InitFor(class AUTGameMode* Game) override;
+	virtual void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;
+	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit, int32 FlagCapScore=1) override;
 
 	virtual bool WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* KilledPawn, AUTPlayerState *KillerPS);
 
