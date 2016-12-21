@@ -811,7 +811,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AController* C)
 void AUTFlagRunGame::HandleMatchIntermission()
 {
 	Super::HandleMatchIntermission();
-
+	UTGameState->UpdateMatchHighlights();
 	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(UTGameState);
 	if ((GS == nullptr) || (GS->CTFRound < GS->NumRounds - 2))
 	{

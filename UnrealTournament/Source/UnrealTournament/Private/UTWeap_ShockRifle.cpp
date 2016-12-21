@@ -401,6 +401,16 @@ int32 AUTWeap_ShockRifle::GetWeaponKillStats(AUTPlayerState * PS) const
 	return KillCount;
 }
 
+int32 AUTWeap_ShockRifle::GetWeaponKillStatsForRound(AUTPlayerState * PS) const
+{
+	int32 KillCount = Super::GetWeaponKillStatsForRound(PS);
+	if (PS)
+	{
+		KillCount += PS->GetRoundStatsValue(NAME_ShockComboKills);
+	}
+	return KillCount;
+}
+
 int32 AUTWeap_ShockRifle::GetWeaponDeathStats(AUTPlayerState * PS) const
 {
 	int32 DeathCount = Super::GetWeaponDeathStats(PS);

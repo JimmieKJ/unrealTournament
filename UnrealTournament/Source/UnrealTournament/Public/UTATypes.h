@@ -238,6 +238,11 @@ namespace HighlightNames
 	const FName ParticipationAward = FName(TEXT("ParticipationAward"));
 	const FName KillsAward = FName(TEXT("KillsAward"));
 	const FName DamageAward = FName(TEXT("DamageAward"));
+
+	const FName MostKillsRed = FName(TEXT("MostKillsRed"));
+	const FName MostKillsBlue = FName(TEXT("MostKillsBlue"));
+	const FName RedeemerRejection = FName(TEXT("RedeemerRejection"));
+	const FName FlagDenials = FName(TEXT("FlagDenials"));
 }
 
 namespace ArmorTypeName

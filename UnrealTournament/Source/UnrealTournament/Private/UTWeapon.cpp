@@ -2783,6 +2783,23 @@ int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState* PS) const
 	return KillCount;
 }
 
+int32 AUTWeapon::GetWeaponKillStatsForRound(AUTPlayerState* PS) const
+{
+	int32 KillCount = 0;
+	if (PS)
+	{
+		if (KillStatsName != NAME_None)
+		{
+			KillCount += PS->GetRoundStatsValue(KillStatsName);
+		}
+		if (AltKillStatsName != NAME_None)
+		{
+			KillCount += PS->GetRoundStatsValue(AltKillStatsName);
+		}
+	}
+	return KillCount;
+}
+
 int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState* PS) const
 {
 	int32 DeathCount = 0;

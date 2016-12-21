@@ -1064,6 +1064,7 @@ public:
 		FName ShotsStatsName;
 
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
+	virtual int32 GetWeaponKillStatsForRound(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
 	virtual float GetWeaponShotsStats(AUTPlayerState * PS) const;
 	virtual float GetWeaponHitsStats(AUTPlayerState * PS) const;

@@ -37,6 +37,11 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	bTeamGame = true;
 	GoldBonusThreshold = 120;
 	SilverBonusThreshold = 60;
+
+	HighlightMap.Add(HighlightNames::MostKillsRed, NSLOCTEXT("AUTGameMode", "MostKillsRed", "Most Kills for Red"));
+	HighlightMap.Add(HighlightNames::MostKillsBlue, NSLOCTEXT("AUTGameMode", "MostKillsBlue", "Most Kills for Blue"));
+	HighlightMap.Add(HighlightNames::RedeemerRejection, NSLOCTEXT("AUTGameMode", "RedeemerRejection", "Rejected Redeemer"));
+	HighlightMap.Add(HighlightNames::FlagDenials, NSLOCTEXT("AUTGameMode", "FlagDenials", "(<UT.MatchSummary.HighlightText.Value>{0}</>) Denials"));
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -391,3 +396,259 @@ void AUTFlagRunGameState::CheckTimerMessage()
 	Super::CheckTimerMessage();
 	RemainingTime += EarlyEndTime;
 }
+
+int32 AUTFlagRunGameState::NumHighlightsNeeded()
+{
+	return HasMatchEnded() ? 3 : 1;
+}
+
+void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
+{
+	if (HasMatchEnded())
+	{
+		if (PS->GetRoundStatsValue(NAME_FCKills) > 0)
+		{
+			PS->AddMatchHighlight(NAME_FCKills, PS->GetRoundStatsValue(NAME_FCKills));
+			if (PS->MatchHighlights[NumHighlightsNeeded() - 1] != NAME_None)
+			{
+				return;
+			}
+		}
+		AUTGameState::AddMinorHighlights_Implementation(PS);
+		return;
+	}
+	if (PS->MatchHighlights[0] != NAME_None)
+	{
+		return;
+	}
+
+	// sprees and multikills
+	FName SpreeStatsNames[5] = { NAME_SpreeKillLevel4, NAME_SpreeKillLevel3, NAME_SpreeKillLevel2, NAME_SpreeKillLevel1, NAME_SpreeKillLevel0 };
+	for (int32 i = 0; i < 5; i++)
+	{
+		if (PS->GetStatsValue(SpreeStatsNames[i]) > 0)
+		{
+			PS->AddMatchHighlight(SpreeStatsNames[i], PS->GetRoundStatsValue(SpreeStatsNames[i]));
+			if (PS->MatchHighlights[3] != NAME_None)
+			{
+				return;
+			}
+			break;
+		}
+	}
+
+	FName MultiKillsNames[4] = { NAME_MultiKillLevel3, NAME_MultiKillLevel2, NAME_MultiKillLevel1, NAME_MultiKillLevel0 };
+	for (int32 i = 0; i < 2; i++)
+	{
+		if (PS->GetRoundStatsValue(MultiKillsNames[i]) > 0)
+		{
+			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetRoundStatsValue(MultiKillsNames[i]));
+			if (PS->MatchHighlights[3] != NAME_None)
+			{
+				return;
+			}
+			break;
+		}
+	}
+
+	// announced kills
+	FName AnnouncedKills[5] = { NAME_AmazingCombos, NAME_AirRox, NAME_AirSnot, NAME_SniperHeadshotKills, NAME_FlakShreds };
+	for (int32 i = 0; i < 5; i++)
+	{
+		if (PS->GetRoundStatsValue(AnnouncedKills[i]) > 1)
+		{
+			PS->AddMatchHighlight(AnnouncedKills[i], PS->GetRoundStatsValue(AnnouncedKills[i]));
+			if (PS->MatchHighlights[3] != NAME_None)
+			{
+				return;
+			}
+		}
+	}
+
+	// Most kills with favorite weapon, if needed
+	if (PS->FavoriteWeapon)
+	{
+		AUTWeapon* DefaultWeapon = PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>();
+		int32 WeaponKills = DefaultWeapon->GetWeaponKillStatsForRound(PS);
+		if (WeaponKills > 2)
+		{
+			bool bIsBestOverall = true;
+			for (int32 i = 0; i < PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArray[i]);
+				if (OtherPS && (PS != OtherPS) && (DefaultWeapon->GetWeaponKillStatsForRound(OtherPS) > WeaponKills))
+				{
+					bIsBestOverall = false;
+					break;
+				}
+			}
+			if (bIsBestOverall)
+			{
+				PS->AddMatchHighlight(HighlightNames::MostWeaponKills, WeaponKills);
+				return;
+			}
+		}
+	}
+
+	// flag cap FIXMESTEVE
+
+	// find a round stat
+	if (PS->GetRoundStatsValue(NAME_FCKills) > 0)
+	{
+		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
+	}
+	else if (PS->RoundKills + PS->RoundKillAssists > 0)
+	{
+		PS->MatchHighlights[0] = HighlightNames::KillsAward;
+		PS->MatchHighlightData[0] = PS->RoundKills + PS->RoundKillAssists;
+	}
+	else if (PS->RoundDamageDone > 0)
+	{
+		PS->MatchHighlights[0] = HighlightNames::DamageAward;
+		PS->MatchHighlightData[0] = PS->RoundDamageDone;
+	}
+	else
+	{
+		PS->MatchHighlights[0] = HighlightNames::ParticipationAward;
+	}
+}
+
+
+void AUTFlagRunGameState::UpdateHighlights_Implementation()
+{
+	if (HasMatchEnded())
+	{
+		AUTGameState::UpdateHighlights_Implementation();
+		return;
+	}
+
+	//Collect all the weapons
+	TArray<AUTWeapon *> StatsWeapons;
+	if (StatsWeapons.Num() == 0)
+	{
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+	}
+
+	AUTPlayerState* MostKills = NULL;
+	AUTPlayerState* MostKillsRed = NULL;
+	AUTPlayerState* MostKillsBlue = NULL;
+	AUTPlayerState* MostHeadShotsPS = NULL;
+	AUTPlayerState* MostAirRoxPS = NULL;
+
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+	{
+		AUTPlayerState* PS = *It;
+		if (PS && !PS->bOnlySpectator)
+		{
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+			int32 TotalKills = PS->RoundKills + PS->RoundKillAssists;
+			if (TotalKills > (MostKills ? MostKills->RoundKills + MostKills->RoundKillAssists : 0))
+			{
+				MostKills = PS;
+			}
+			AUTPlayerState* TopTeamKiller = (TeamIndex == 0) ? MostKillsRed : MostKillsBlue;
+			if (TotalKills > (TopTeamKiller ? TopTeamKiller->RoundKills + TopTeamKiller->RoundKillAssists : 0))
+			{
+				if (TeamIndex == 0)
+				{
+					MostKillsRed = PS;
+				}
+				else
+				{
+					MostKillsBlue = PS;
+				}
+			}
+			//Figure out what weapon killed the most
+			PS->FavoriteWeapon = nullptr;
+			int32 BestKills = 0;
+			for (AUTWeapon* Weapon : StatsWeapons)
+			{
+				int32 Kills = Weapon->GetWeaponKillStatsForRound(PS);
+				if (Kills > BestKills)
+				{
+					BestKills = Kills;
+					PS->FavoriteWeapon = Weapon->GetClass();
+				}
+			}
+
+			if (PS->GetRoundStatsValue(NAME_SniperHeadshotKills) > (MostHeadShotsPS ? MostHeadShotsPS->GetRoundStatsValue(NAME_SniperHeadshotKills) : 0.f))
+			{
+				MostHeadShotsPS = PS;
+			}
+			if (PS->GetRoundStatsValue(NAME_AirRox) > (MostAirRoxPS ? MostAirRoxPS->GetRoundStatsValue(NAME_AirRox) : 0.f))
+			{
+				MostAirRoxPS = PS;
+			}
+		}
+	}
+
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+	{
+		AUTPlayerState* PS = *It;
+		if (PS && !PS->bOnlySpectator)
+		{
+			int32 TotalKills = PS->RoundKills + PS->RoundKillAssists;
+			if (MostKills && (TotalKills >= MostKills->RoundKills + MostKills->RoundKillAssists))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
+			}
+			else if (PS->Team)
+			{
+				AUTPlayerState* TopTeamKiller = (PS->Team->TeamIndex == 0) ? MostKillsRed : MostKillsBlue;
+				if (TotalKills >= (TopTeamKiller ? TopTeamKiller->RoundKills + TopTeamKiller->RoundKillAssists : 0))
+				{
+					FName TopScoreHighlightName = (PS->Team->TeamIndex == 0) ? HighlightNames::MostKillsRed : HighlightNames::MostKillsBlue;
+					PS->AddMatchHighlight(TopScoreHighlightName, TotalKills);
+				}
+			}
+			// FIXMESTEVE add killing blows
+			if (PS->MatchHighlights[0] != NAME_None)
+			{
+				if (PS->GetRoundStatsValue(NAME_RedeemerRejected) > 0)
+				{
+					PS->AddMatchHighlight(HighlightNames::RedeemerRejection, PS->GetRoundStatsValue(NAME_RedeemerRejected));
+				}
+				else if (PS->GetRoundStatsValue(NAME_FlagDenials) > 0)
+				{
+					PS->AddMatchHighlight(HighlightNames::FlagDenials, PS->GetRoundStatsValue(NAME_FlagDenials));
+				}
+			}
+		}
+	}
+
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+	{
+		AUTPlayerState* PS = *It;
+		if (PS && !PS->bOnlySpectator && PS->MatchHighlights[0] == NAME_None)
+		{
+			if (MostHeadShotsPS && (PS->GetRoundStatsValue(NAME_SniperHeadshotKills) == MostHeadShotsPS->GetRoundStatsValue(NAME_SniperHeadshotKills)))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostHeadShots, MostHeadShotsPS->GetRoundStatsValue(NAME_SniperHeadshotKills));
+			}
+			else if (MostAirRoxPS && (PS->GetRoundStatsValue(NAME_AirRox) == MostAirRoxPS->GetRoundStatsValue(NAME_AirRox)))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetRoundStatsValue(NAME_AirRox));
+			}
+		}
+	}
+
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+	{
+		AUTPlayerState* PS = *It;
+		if (PS && !PS->bOnlySpectator && PS->MatchHighlights[0] == NAME_None)
+		{
+			// only add low priority highlights if not enough high priority highlights
+			AddMinorHighlights(PS);
+		}
+	}
+}
+
+
+
