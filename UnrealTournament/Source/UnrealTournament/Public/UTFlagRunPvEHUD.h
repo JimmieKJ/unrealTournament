@@ -25,4 +25,5 @@ public:
 	virtual void ToggleBoostWheel(bool bShow);
 	bool bShowBoostWheel;
 	virtual void DrawHUD() override;
+	virtual void GetPlayerListForIcons(TArray<AUTPlayerState*>& SortedPlayers) override;
 };

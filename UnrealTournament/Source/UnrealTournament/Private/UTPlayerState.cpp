@@ -177,6 +177,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
 	DOREPLIFETIME(AUTPlayerState, ReadyMode);
 
+	DOREPLIFETIME_CONDITION(AUTPlayerState, HUDIcon, COND_InitialOnly);
+
 	DOREPLIFETIME(AUTPlayerState, CurrentLoadoutPackTag);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, PrimarySpawnInventory, COND_OwnerOnly);

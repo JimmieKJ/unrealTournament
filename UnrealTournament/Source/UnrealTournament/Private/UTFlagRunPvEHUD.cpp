@@ -73,7 +73,7 @@ void AUTFlagRunPvEHUD::DrawHUD()
 		}
 	}
 
-	if (UTPlayerOwner != nullptr && UTPlayerOwner->PlayerState != nullptr && !UTPlayerOwner->PlayerState->bOnlySpectator)
+	if (UTPlayerOwner != nullptr && UTPlayerOwner->PlayerState != nullptr && !UTPlayerOwner->PlayerState->bOnlySpectator && !ScoreboardIsUp())
 	{
 		// draw extra life display
 		AUTFlagRunPvEGameState* GS = GetWorld()->GetGameState<AUTFlagRunPvEGameState>();
@@ -86,4 +86,21 @@ void AUTFlagRunPvEHUD::DrawHUD()
 			Canvas->DrawText(SmallFont, Txt, FMath::TruncToFloat(Canvas->ClipX * 0.95f - XL), FMath::TruncToFloat(Canvas->ClipY * 0.15f));
 		}
 	}
+}
+
+void AUTFlagRunPvEHUD::GetPlayerListForIcons(TArray<AUTPlayerState*>& SortedPlayers)
+{
+	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GetWorld()->GetGameState());
+	AUTPlayerState* HUDPS = GetScorerPlayerState();
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		// only display elite monsters on HUD
+		if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bIsInactive && (UTPS->GetTeamNum() != 0 || UTPS->RemainingLives > 0))
+		{
+			UTPS->SelectionOrder = (UTPS == HUDPS) ? -1 : UTPS->SpectatingIDTeam;
+			SortedPlayers.Add(UTPS);
+		}
+	}
+	SortedPlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder > B.SelectionOrder; });
 }

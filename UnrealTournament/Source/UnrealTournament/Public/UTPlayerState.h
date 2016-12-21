@@ -652,6 +652,15 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
+	/** HUD icon for player displays; overrides character data if set */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	FCanvasIcon HUDIcon;
+
+	inline const FCanvasIcon& GetHUDIcon() const
+	{
+		return HUDIcon.Texture != nullptr ? HUDIcon : SelectedCharacter.GetDefaultObject()->DefaultCharacterPortrait;
+	}
+
 protected:
 	/*  Used to determine whether boost can be triggered. */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)

@@ -33,6 +33,8 @@ public:
 	/** chance to drop */
 	UPROPERTY(EditDefaultsOnly)
 	float DropChance;
+	UPROPERTY(EditDefaultsOnly)
+	FCanvasIcon HUDIcon;
 
 	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data) override
 	{}
