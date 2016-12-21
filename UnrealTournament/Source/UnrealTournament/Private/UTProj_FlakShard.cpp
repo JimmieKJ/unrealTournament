@@ -205,7 +205,7 @@ FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* Ot
 	else
 	{
 		Result.BaseDamage = FMath::Max<float>(Result.MinimumDamage, Result.BaseDamage - DamageAttenuation * FMath::Max<float>(0.0f, GetWorld()->GetTimeSeconds() - CreationTime - DamageAttenuationDelay));
-		if (ProjectileMovement->ProjectileGravityScale != 0.f)
+		if (ProjectileMovement && (ProjectileMovement->ProjectileGravityScale != 0.f))
 		{
 			Result.BaseDamage *= BounceDamagePct;
 			OutMomentum = 0.f;
