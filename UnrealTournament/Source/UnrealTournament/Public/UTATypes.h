@@ -239,10 +239,22 @@ namespace HighlightNames
 	const FName KillsAward = FName(TEXT("KillsAward"));
 	const FName DamageAward = FName(TEXT("DamageAward"));
 
-	const FName MostKillsRed = FName(TEXT("MostKillsRed"));
-	const FName MostKillsBlue = FName(TEXT("MostKillsBlue"));
+	const FName MostKillsTeam = FName(TEXT("MostKillsTeam"));
 	const FName RedeemerRejection = FName(TEXT("RedeemerRejection"));
 	const FName FlagDenials = FName(TEXT("FlagDenials"));
+	const FName WeaponKills = FName(TEXT("WeaponKills"));
+	const FName KillingBlowsAward = FName(TEXT("KillingBlowsAward"));
+	const FName MostKillingBlowsAward = FName(TEXT("MostKillingBlowsAward"));
+	const FName FlagCap = FName(TEXT("FlagCap"));
+
+	const FName BadMF = FName(TEXT("BadMF"));
+	const FName LikeABoss = FName(TEXT("LikeABoss"));
+	const FName DeathIncarnate = FName(TEXT("DeathIncarnate"));
+	const FName NaturalBornKiller = FName(TEXT("NaturalBornKiller"));
+	const FName SpecialForces = FName(TEXT("SpecialForces"));
+	const FName HiredGun = FName(TEXT("HiredGun"));
+	const FName HappyToBeHere = FName(TEXT("HappyToBeHere"));
+
 }
 
 namespace ArmorTypeName

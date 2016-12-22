@@ -38,10 +38,36 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	GoldBonusThreshold = 120;
 	SilverBonusThreshold = 60;
 
-	HighlightMap.Add(HighlightNames::MostKillsRed, NSLOCTEXT("AUTGameMode", "MostKillsRed", "Most Kills for Red"));
-	HighlightMap.Add(HighlightNames::MostKillsBlue, NSLOCTEXT("AUTGameMode", "MostKillsBlue", "Most Kills for Blue"));
+	HighlightMap.Add(HighlightNames::MostKillsTeam, NSLOCTEXT("AUTGameMode", "MostKillsTeam", "Most Kills for Team ({0})"));
+	HighlightMap.Add(HighlightNames::BadMF, NSLOCTEXT("AUTGameMode", "MostKillsTeam", "Most Kills for Team ({0})"));
+	HighlightMap.Add(HighlightNames::LikeABoss, NSLOCTEXT("AUTGameMode", "MostKillsTeam", "Most Kills for Team ({0})"));
+	HighlightMap.Add(HighlightNames::DeathIncarnate, NSLOCTEXT("AUTGameMode", "MostKillsTeam", "Most Kills ({0})"));
+
+	HighlightMap.Add(HighlightNames::NaturalBornKiller, NSLOCTEXT("AUTGameMode", "LotsOfKills", "{0} Kills"));
+	HighlightMap.Add(HighlightNames::SpecialForces, NSLOCTEXT("AUTGameMode", "LotsOfKills", "{0} Kills"));
+	HighlightMap.Add(HighlightNames::HiredGun, NSLOCTEXT("AUTGameMode", "LotsOfKills", "{0} Kills"));
+	HighlightMap.Add(HighlightNames::HappyToBeHere, NSLOCTEXT("AUTGameMode", "LotsOfKills", "{0} Kills"));
+
 	HighlightMap.Add(HighlightNames::RedeemerRejection, NSLOCTEXT("AUTGameMode", "RedeemerRejection", "Rejected Redeemer"));
-	HighlightMap.Add(HighlightNames::FlagDenials, NSLOCTEXT("AUTGameMode", "FlagDenials", "(<UT.MatchSummary.HighlightText.Value>{0}</>) Denials"));
+	HighlightMap.Add(HighlightNames::FlagDenials, NSLOCTEXT("AUTGameMode", "FlagDenials", "{0} Denials"));
+	HighlightMap.Add(HighlightNames::WeaponKills, NSLOCTEXT("AUTGameMode", "WeaponKills", "{0} kills with {1}"));
+	HighlightMap.Add(HighlightNames::KillingBlowsAward, NSLOCTEXT("AUTGameMode", "KillingBlowsAward", "{0} killing blows"));
+	HighlightMap.Add(HighlightNames::MostKillingBlowsAward, NSLOCTEXT("AUTGameMode", "MostKillingBlowsAward", "Most killing blows ({0})"));
+
+	ShortHighlightMap.Add(HighlightNames::BadMF, NSLOCTEXT("AUTGameMode", "BadMF", "Bad MotherF**ker"));
+	ShortHighlightMap.Add(HighlightNames::LikeABoss, NSLOCTEXT("AUTGameMode", "LikeABoss", "Like a Boss"));
+	ShortHighlightMap.Add(HighlightNames::DeathIncarnate, NSLOCTEXT("AUTGameMode", "DeathIncarnate", "Death Incarnate"));
+	ShortHighlightMap.Add(HighlightNames::NaturalBornKiller, NSLOCTEXT("AUTGameMode", "NaturalBornKiller", "Natural Born Killer"));
+	ShortHighlightMap.Add(HighlightNames::SpecialForces, NSLOCTEXT("AUTGameMode", "SpecialForces", "Special Forces"));
+	ShortHighlightMap.Add(HighlightNames::HiredGun, NSLOCTEXT("AUTGameMode", "HiredGun", "Hired Gun"));
+	ShortHighlightMap.Add(HighlightNames::HappyToBeHere, NSLOCTEXT("AUTGameMode", "HappyToBeHere", "Just Happy To Be Here"));
+	ShortHighlightMap.Add(HighlightNames::MostKillsTeam, NSLOCTEXT("AUTGameMode", "ShortMostKills", "Top Gun"));
+
+	ShortHighlightMap.Add(HighlightNames::RedeemerRejection, NSLOCTEXT("AUTGameMode", "ShortRejection", "Redeem this"));
+	ShortHighlightMap.Add(HighlightNames::FlagDenials, NSLOCTEXT("AUTGameMode", "ShortDenials", "You shall not pass"));
+	ShortHighlightMap.Add(HighlightNames::WeaponKills, NSLOCTEXT("AUTGameMode", "ShortWeaponKills", "Weapon Master"));
+	ShortHighlightMap.Add(HighlightNames::KillingBlowsAward, NSLOCTEXT("AUTGameMode", "ShortKillingBlowsAward", "Nice Shot"));
+	ShortHighlightMap.Add(HighlightNames::MostKillingBlowsAward, NSLOCTEXT("AUTGameMode", "ShortMostKillingBlowsAward", "Punisher"));
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -429,12 +455,15 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(SpreeStatsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(SpreeStatsNames[i], PS->GetRoundStatsValue(SpreeStatsNames[i]));
-			if (PS->MatchHighlights[3] != NAME_None)
-			{
-				return;
-			}
-			break;
+			return;
 		}
+	}
+
+	if (PS->RoundKills + PS->RoundKillAssists >= 15)
+	{
+		PS->MatchHighlights[0] = HighlightNames::NaturalBornKiller;
+		PS->MatchHighlightData[0] = PS->RoundKills + PS->RoundKillAssists;
+		return;
 	}
 
 	FName MultiKillsNames[4] = { NAME_MultiKillLevel3, NAME_MultiKillLevel2, NAME_MultiKillLevel1, NAME_MultiKillLevel0 };
@@ -443,12 +472,14 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetRoundStatsValue(MultiKillsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetRoundStatsValue(MultiKillsNames[i]));
-			if (PS->MatchHighlights[3] != NAME_None)
-			{
-				return;
-			}
-			break;
+			return;
 		}
+	}
+	if (PS->RoundKills + PS->RoundKillAssists >= 10)
+	{
+		PS->MatchHighlights[0] = HighlightNames::SpecialForces;
+		PS->MatchHighlightData[0] = PS->RoundKills + PS->RoundKillAssists;
+		return;
 	}
 
 	// announced kills
@@ -458,20 +489,19 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetRoundStatsValue(AnnouncedKills[i]) > 1)
 		{
 			PS->AddMatchHighlight(AnnouncedKills[i], PS->GetRoundStatsValue(AnnouncedKills[i]));
-			if (PS->MatchHighlights[3] != NAME_None)
-			{
-				return;
-			}
+			return;
 		}
 	}
 
 	// Most kills with favorite weapon, if needed
+	bool bHasMultipleKillWeapon = false;
 	if (PS->FavoriteWeapon)
 	{
 		AUTWeapon* DefaultWeapon = PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>();
 		int32 WeaponKills = DefaultWeapon->GetWeaponKillStatsForRound(PS);
-		if (WeaponKills > 2)
+		if (WeaponKills > 1)
 		{
+			bHasMultipleKillWeapon = true;
 			bool bIsBestOverall = true;
 			for (int32 i = 0; i < PlayerArray.Num(); i++)
 			{
@@ -492,19 +522,29 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 
 	// flag cap FIXMESTEVE
 
-	// find a round stat
-	if (PS->GetRoundStatsValue(NAME_FCKills) > 0)
+	if (bHasMultipleKillWeapon)
+	{
+		AUTWeapon* DefaultWeapon = PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>();
+		int32 WeaponKills = DefaultWeapon->GetWeaponKillStatsForRound(PS);
+		PS->AddMatchHighlight(HighlightNames::WeaponKills, WeaponKills);
+	}
+	else if (PS->GetRoundStatsValue(NAME_FCKills) > 1)
 	{
 		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
 	}
+	else if (PS->RoundKills > FMath::Max(1, PS->RoundKillAssists))
+	{
+		PS->MatchHighlights[0] = HighlightNames::KillingBlowsAward;
+		PS->MatchHighlightData[0] = PS->RoundKills;
+	}
 	else if (PS->RoundKills + PS->RoundKillAssists > 0)
 	{
-		PS->MatchHighlights[0] = HighlightNames::KillsAward;
+		PS->MatchHighlights[0] = (PS->RoundKills + PS->RoundKillAssists > 2) ? HighlightNames::HiredGun : HighlightNames::HappyToBeHere;
 		PS->MatchHighlightData[0] = PS->RoundKills + PS->RoundKillAssists;
 	}
 	else if (PS->RoundDamageDone > 0)
 	{
-		PS->MatchHighlights[0] = HighlightNames::DamageAward;
+		PS->MatchHighlights[0] = HighlightNames::HappyToBeHere;
 		PS->MatchHighlightData[0] = PS->RoundDamageDone;
 	}
 	else
@@ -513,7 +553,7 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	}
 }
 
-
+// new plan - rank order kills, give pending award.. Early out if good enough, override for lower
 void AUTFlagRunGameState::UpdateHighlights_Implementation()
 {
 	if (HasMatchEnded())
@@ -541,6 +581,8 @@ void AUTFlagRunGameState::UpdateHighlights_Implementation()
 	AUTPlayerState* MostKillsBlue = NULL;
 	AUTPlayerState* MostHeadShotsPS = NULL;
 	AUTPlayerState* MostAirRoxPS = NULL;
+	AUTPlayerState* MostKillingBlowsRed = NULL;
+	AUTPlayerState* MostKillingBlowsBlue = NULL;
 
 	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
@@ -565,6 +607,19 @@ void AUTFlagRunGameState::UpdateHighlights_Implementation()
 					MostKillsBlue = PS;
 				}
 			}
+			AUTPlayerState* TopKillingBlows = (TeamIndex == 0) ? MostKillingBlowsRed : MostKillingBlowsBlue;
+			if (PS->RoundKills > (TopKillingBlows ? TopKillingBlows->RoundKills : 0))
+			{
+				if (TeamIndex == 0)
+				{
+					MostKillingBlowsRed = PS;
+				}
+				else
+				{
+					MostKillingBlowsBlue = PS;
+				}
+			}
+
 			//Figure out what weapon killed the most
 			PS->FavoriteWeapon = nullptr;
 			int32 BestKills = 0;
@@ -595,29 +650,46 @@ void AUTFlagRunGameState::UpdateHighlights_Implementation()
 		if (PS && !PS->bOnlySpectator)
 		{
 			int32 TotalKills = PS->RoundKills + PS->RoundKillAssists;
-			if (MostKills && (TotalKills >= MostKills->RoundKills + MostKills->RoundKillAssists))
+			if (MostKills && (TotalKills >= 20) && (TotalKills >= MostKills->RoundKills + MostKills->RoundKillAssists))
 			{
-				PS->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
+				PS->AddMatchHighlight(HighlightNames::DeathIncarnate, MostKills->Kills);
 			}
 			else if (PS->Team)
 			{
 				AUTPlayerState* TopTeamKiller = (PS->Team->TeamIndex == 0) ? MostKillsRed : MostKillsBlue;
-				if (TotalKills >= (TopTeamKiller ? TopTeamKiller->RoundKills + TopTeamKiller->RoundKillAssists : 0))
+				if (TopTeamKiller && (TotalKills >= TopTeamKiller->RoundKills + TopTeamKiller->RoundKillAssists))
 				{
-					FName TopScoreHighlightName = (PS->Team->TeamIndex == 0) ? HighlightNames::MostKillsRed : HighlightNames::MostKillsBlue;
-					PS->AddMatchHighlight(TopScoreHighlightName, TotalKills);
+					if (TotalKills >= 15)
+					{
+						PS->AddMatchHighlight(HighlightNames::BadMF, TotalKills);
+					}
+					else if (TotalKills >= 10)
+					{
+						PS->AddMatchHighlight(HighlightNames::LikeABoss, TotalKills);
+					}
+					else
+					{
+						PS->AddMatchHighlight(HighlightNames::MostKillsTeam, TotalKills);
+					}
+				}
+				else
+				{
+					AUTPlayerState* TopKillingBlows = (PS->Team->TeamIndex == 0) ? MostKillingBlowsRed : MostKillingBlowsBlue;
+					if (TopKillingBlows && (PS->RoundKills >= TopKillingBlows->RoundKills))
+					{
+						PS->AddMatchHighlight(HighlightNames::MostKillingBlowsAward, PS->RoundKills);
+					}
 				}
 			}
-			// FIXMESTEVE add killing blows
-			if (PS->MatchHighlights[0] != NAME_None)
+			if (PS->MatchHighlights[0] == NAME_None)
 			{
-				if (PS->GetRoundStatsValue(NAME_RedeemerRejected) > 0)
-				{
-					PS->AddMatchHighlight(HighlightNames::RedeemerRejection, PS->GetRoundStatsValue(NAME_RedeemerRejected));
-				}
-				else if (PS->GetRoundStatsValue(NAME_FlagDenials) > 0)
+				if (PS->GetRoundStatsValue(NAME_FlagDenials) > 1)
 				{
 					PS->AddMatchHighlight(HighlightNames::FlagDenials, PS->GetRoundStatsValue(NAME_FlagDenials));
+				}
+				else if (PS->GetRoundStatsValue(NAME_RedeemerRejected) > 0)
+				{
+					PS->AddMatchHighlight(HighlightNames::RedeemerRejection, PS->GetRoundStatsValue(NAME_RedeemerRejected));
 				}
 			}
 		}
