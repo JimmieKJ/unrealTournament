@@ -123,6 +123,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
 	DOREPLIFETIME(AUTPlayerState, DMRank);
+	DOREPLIFETIME(AUTPlayerState, RankedFlagRunRank);
 	DOREPLIFETIME(AUTPlayerState, TrainingLevel);
 	DOREPLIFETIME(AUTPlayerState, PrevXP);
 	DOREPLIFETIME(AUTPlayerState, TotalChallengeStars);
@@ -155,6 +156,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, DMMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, ShowdownMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, FlagRunMatchesPlayed);
+	DOREPLIFETIME(AUTPlayerState, RankedFlagRunMatchesPlayed);
 	DOREPLIFETIME(AUTPlayerState, RankedShowdownMatchesPlayed);
 
 	DOREPLIFETIME(AUTPlayerState, bHasVoted);
@@ -1552,6 +1554,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 	MatchRatingTypes.Add(TEXT("RankedDuelSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedCTFSkillRating"));
 	MatchRatingTypes.Add(TEXT("RankedShowdownSkillRating"));
+	MatchRatingTypes.Add(TEXT("RankedFlagRunSkillRating"));
 	// This should be a weak ptr here, but UTLocalPlayer is unlikely to go away
 	TWeakObjectPtr<AUTPlayerState> WeakPlayerState(this);
 	McpUtils->GetBulkAccountMmr(MatchRatingTypes, [WeakPlayerState](const FOnlineError& Result, const FBulkAccountMmr& Response)
@@ -1577,6 +1580,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->RankedDuelRank = Response.Ratings[6];
 			WeakPlayerState->RankedCTFRank = Response.Ratings[7];
 			WeakPlayerState->RankedShowdownRank = Response.Ratings[8];
+			WeakPlayerState->RankedFlagRunRank = Response.Ratings[9];
 
 			WeakPlayerState->DuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[0]);
 			WeakPlayerState->TDMMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[1]);
@@ -1587,6 +1591,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 			WeakPlayerState->RankedDuelMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[6]);
 			WeakPlayerState->RankedCTFMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[7]);
 			WeakPlayerState->RankedShowdownMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[8]);
+			WeakPlayerState->RankedFlagRunMatchesPlayed = FMath::Min(255, Response.NumGamesPlayed[9]);
 			
 			AUTBaseGameMode* BaseGame = WeakPlayerState->GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 			if (BaseGame)
@@ -1596,7 +1601,7 @@ void AUTPlayerState::ReadMMRFromBackend()
 
 			UE_LOG(UT, Log, TEXT("%s MMR fetched from the backend (Duel:%d) (TDM:%d) (FFA:%d)"), *WeakPlayerState->PlayerName, WeakPlayerState->DuelRank, WeakPlayerState->TDMRank, WeakPlayerState->DMRank);
 			UE_LOG(UT, Log, TEXT("(CTF:%d) (Showdown:%d) (Ranked Showdown:%d)"), WeakPlayerState->CTFRank, WeakPlayerState->ShowdownRank, WeakPlayerState->RankedShowdownRank);
-			UE_LOG(UT, Log, TEXT("(Ranked Duel:%d) (Ranked CTF:%d)"), WeakPlayerState->RankedDuelRank, WeakPlayerState->RankedCTFRank);
+			UE_LOG(UT, Log, TEXT("(Ranked Duel:%d) (Ranked CTF:%d) (Ranked FlagRun:%d)"), WeakPlayerState->RankedDuelRank, WeakPlayerState->RankedCTFRank, WeakPlayerState->RankedFlagRunRank);
 		}
 	});
 }

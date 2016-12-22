@@ -29,6 +29,8 @@ const FName NAME_FlagRunSkillRating(TEXT("FlagRunSkillRating"));
 const FName NAME_RankedDuelSkillRating(TEXT("RankedDuelSkillRating"));
 const FName NAME_RankedCTFSkillRating(TEXT("RankedCTFSkillRating"));
 const FName NAME_RankedShowdownSkillRating(TEXT("RankedShowdownSkillRating"));
+const FName NAME_RankedFlagRunSkillRating(TEXT("RankedFlagRunSkillRating"));
+
 
 const FName NAME_MatchesPlayed(TEXT("MatchesPlayed"));
 const FName NAME_MatchesQuit(TEXT("MatchesQuit"));

@@ -106,6 +106,8 @@ public:
 
 	virtual void UpdateSkillRating() override;
 
+	virtual FString GetRankedLeagueName() override;
+
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;

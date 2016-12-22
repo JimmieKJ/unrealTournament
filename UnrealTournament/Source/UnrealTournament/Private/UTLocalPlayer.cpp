@@ -2049,6 +2049,10 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 			{
 				bRankedSession = true;
 			}
+			else if (MatchRatingType == NAME_RankedFlagRunSkillRating.ToString())
+			{
+				bRankedSession = true;
+			}
 
 			int32 OldLevel = 0;
 			int32 OldBadge = 0;
@@ -2079,6 +2083,7 @@ void UUTLocalPlayer::ReadSpecificELOFromBackend(const FString& MatchRatingType)
 	// Refresh ranked league if we played ranked
 	if (MatchRatingType == NAME_RankedDuelSkillRating.ToString() ||
 		MatchRatingType == NAME_RankedCTFSkillRating.ToString() ||
+		MatchRatingType == NAME_RankedFlagRunSkillRating.ToString() ||
 		MatchRatingType == NAME_RankedShowdownSkillRating.ToString())
 	{
 		McpUtils->GetAccountLeague(MatchRatingType, [this, MatchRatingType](const FOnlineError& Result, const FAccountLeague& Response)
@@ -2364,6 +2369,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					FMMREntry ShowdownMMR;
 					FMMREntry FlagRunMMR;
 					FMMREntry RankedShowdownMMR;
+					FMMREntry RankedFlagRunMMR;
 					FMMREntry RankedCTFMMR;
 					FMMREntry RankedDuelMMR;
 
@@ -2374,6 +2380,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					WeakLocalPlayer->GetMMREntry(NAME_ShowdownSkillRating.ToString(), ShowdownMMR);
 					WeakLocalPlayer->GetMMREntry(NAME_FlagRunSkillRating.ToString(), FlagRunMMR);
 					WeakLocalPlayer->GetMMREntry(NAME_RankedShowdownSkillRating.ToString(), RankedShowdownMMR);
+					WeakLocalPlayer->GetMMREntry(NAME_RankedFlagRunSkillRating.ToString(), RankedFlagRunMMR);
 					WeakLocalPlayer->GetMMREntry(NAME_RankedCTFSkillRating.ToString(), RankedCTFMMR);
 					WeakLocalPlayer->GetMMREntry(NAME_RankedDuelSkillRating.ToString(), RankedDuelMMR);
 
@@ -2384,6 +2391,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					UTPS->ShowdownRank = ShowdownMMR.MMR;
 					UTPS->FlagRunRank = FlagRunMMR.MMR;
 					UTPS->RankedShowdownRank = RankedShowdownMMR.MMR;
+					UTPS->RankedFlagRunRank = RankedFlagRunMMR.MMR;
 					UTPS->RankedCTFRank = RankedCTFMMR.MMR;
 					UTPS->RankedDuelRank = RankedDuelMMR.MMR;
 
@@ -2394,6 +2402,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 					UTPS->ShowdownMatchesPlayed = FMath::Min(255, ShowdownMMR.MatchesPlayed);
 					UTPS->FlagRunMatchesPlayed = FMath::Min(255, FlagRunMMR.MatchesPlayed);
 					UTPS->RankedShowdownMatchesPlayed = FMath::Min(255, RankedShowdownMMR.MatchesPlayed);
+					UTPS->RankedFlagRunMatchesPlayed = FMath::Min(255, RankedFlagRunMMR.MatchesPlayed);
 					UTPS->RankedCTFMatchesPlayed = FMath::Min(255, RankedCTFMMR.MatchesPlayed);
 					UTPS->RankedDuelMatchesPlayed = FMath::Min(255, RankedDuelMMR.MatchesPlayed);
 				}
@@ -2409,6 +2418,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 
 	});
 
+	ReadLeagueFromBackend(NAME_RankedFlagRunSkillRating.ToString());
 	ReadLeagueFromBackend(NAME_RankedShowdownSkillRating.ToString());
 	ReadLeagueFromBackend(NAME_RankedCTFSkillRating.ToString());
 	ReadLeagueFromBackend(NAME_RankedDuelSkillRating.ToString());
@@ -3421,19 +3431,19 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			int32 NewPlaylistId = 0;
 			if (QuickMatchType == EEpicDefaultRuleTags::Deathmatch)
 			{
-				NewPlaylistId = 5;
+				NewPlaylistId = 12;
 			}
 			else if (QuickMatchType == EEpicDefaultRuleTags::CTF)
 			{
-				NewPlaylistId = 4;
+				NewPlaylistId = 11;
 			}
 			else if (QuickMatchType == EEpicDefaultRuleTags::TEAMSHOWDOWN)
 			{
-				NewPlaylistId = 6;
+				NewPlaylistId = 13;
 			}
 			else if (QuickMatchType == EEpicDefaultRuleTags::FlagRun)
 			{
-				NewPlaylistId = 7;
+				NewPlaylistId = 14;
 			}
 			else
 			{

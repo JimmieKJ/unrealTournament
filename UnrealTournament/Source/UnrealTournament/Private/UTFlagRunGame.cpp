@@ -891,7 +891,19 @@ void AUTFlagRunGame::CheatScore()
 
 void AUTFlagRunGame::UpdateSkillRating()
 {
-	ReportRankedMatchResults(NAME_FlagRunSkillRating.ToString());
+	if (bRankedSession)
+	{
+		ReportRankedMatchResults(GetRankedLeagueName());
+	}
+	else
+	{
+		ReportRankedMatchResults(NAME_FlagRunSkillRating.ToString());
+	}
+}
+
+FString AUTFlagRunGame::GetRankedLeagueName()
+{
+	return NAME_RankedFlagRunSkillRating.ToString();
 }
 
 uint8 AUTFlagRunGame::GetNumMatchesFor(AUTPlayerState* PS, bool bInRankedSession) const
@@ -908,10 +920,22 @@ void AUTFlagRunGame::SetEloFor(AUTPlayerState* PS, bool bInRankedSession, int32 
 {
 	if (PS)
 	{
-		PS->FlagRunRank = NewEloValue;
-		if (bIncrementMatchCount && (PS->FlagRunMatchesPlayed < 255))
+		if (bInRankedSession)
 		{
-			PS->FlagRunMatchesPlayed++;
+			PS->RankedFlagRunRank = NewEloValue;
+			if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
+			{
+				PS->RankedFlagRunMatchesPlayed++;
+			}
+
+		}
+		else
+		{
+			PS->FlagRunRank = NewEloValue;
+			if (bIncrementMatchCount && (PS->FlagRunMatchesPlayed < 255))
+			{
+				PS->FlagRunMatchesPlayed++;
+			}
 		}
 	}
 }

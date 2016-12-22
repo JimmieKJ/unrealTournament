@@ -842,6 +842,8 @@ public:
 	int32 RankedCTFRank;
 	UPROPERTY(Replicated)
 	int32 RankedShowdownRank;
+	UPROPERTY(Replicated)
+	int32 RankedFlagRunRank;
 	
 	/** Note only valid up to 255, enough to figure out beginner badges. */
 	UPROPERTY(Replicated)
@@ -862,6 +864,8 @@ public:
 	uint8 RankedCTFMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 RankedShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 RankedFlagRunMatchesPlayed;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;

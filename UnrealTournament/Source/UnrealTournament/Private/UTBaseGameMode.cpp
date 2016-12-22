@@ -566,6 +566,7 @@ uint8 AUTBaseGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession)
 	MaxMatches = FMath::Max(MaxMatches, PS->CTFMatchesPlayed);
 	MaxMatches = FMath::Max(MaxMatches, PS->TDMMatchesPlayed);
 	MaxMatches = FMath::Max(MaxMatches, PS->ShowdownMatchesPlayed);
+	MaxMatches = FMath::Max(MaxMatches, PS->FlagRunMatchesPlayed);
 	return MaxMatches;
 }
 
