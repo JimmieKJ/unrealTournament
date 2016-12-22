@@ -526,7 +526,7 @@
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsServer Win64;" If="$(WithWin64Server)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish Editor Win64;" If="$(WithWin64Editor)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk Editor Win64;Post Editor Win64;Audit Chunks Editor Win64;" If="$(WithWin64Editor) And $(EnableMCP)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Compile UT Test Windows;" If="$(IncludeTestExes)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Compile UT Test Windows;" If="$(IncludeTestExes) And ($(WithWindowsClients) Or $(WithWin64Server))"/>
 	<Aggregate Name="Make Windows Game" Requires="$(Windows Build Targets)"/>
 
 	<Property Name="Mac Build Targets" Value=""/>
@@ -534,13 +534,13 @@
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Post Mac;Chunk Mac;Audit Chunks Game Mac;" If="$(WithMacClient) And $(EnableMCP)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Publish Editor Mac;" If="$(WithMacEditor)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Chunk Editor Mac;Post Editor Mac;Audit Chunks Editor Mac;" If="$(WithMacEditor) And $(EnableMCP)"/>
-	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Compile UT Test Mac;" If="$(IncludeTestExes)"/>
+	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Compile UT Test Mac;" If="$(IncludeTestExes) And $(WithMacClient)"/>
 	<Aggregate Name="Make Mac Game" Requires="$(Mac Build Targets)"/>
 
 	<Property Name="Linux Build Targets" Value=""/>
 	<Property Name="Linux Build Targets" Value="$(Linux Build Targets)Publish LinuxNoEditor;" If="$(WithLinuxClient)"/>
 	<Property Name="Linux Build Targets" Value="$(Linux Build Targets)Publish LinuxServer;" If="$(WithLinuxServer)"/>
-	<Property Name="Linux Build Targets" Value="$(Linux Build Targets)Compile UT Test Linux;" If="$(IncludeTestExes)"/>
+	<Property Name="Linux Build Targets" Value="$(Linux Build Targets)Compile UT Test Linux;" If="$(IncludeTestExes) And ($(WithLinuxClient) Or $(WithLinuxServer))"/>
 	<Aggregate Name="Make Linux Game" Requires="$(Linux Build Targets)"/>
 
 	<Property Name="Standard Build Targets" Value="Make Windows Game;Make Mac Game;Make Linux Game;"/>
