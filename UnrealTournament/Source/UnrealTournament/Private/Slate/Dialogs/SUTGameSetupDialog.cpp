@@ -12,6 +12,7 @@
 #include "UTReplicatedMapInfo.h"
 #include "PartyContext.h"
 #include "BlueprintContextLibrary.h"
+#include "UTAnalytics.h"
 
 #if !UE_SERVER
 
@@ -731,11 +732,11 @@ void SUTGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 	}
 }
 
-void SUTGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32& bTeamGame)
+void SUTGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, FString& GameModeName, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32& bTeamGame)
 {
 	if (CustomPanel.IsValid())
 	{
-		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, BotSkillLevel, bTeamGame);
+		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, Description, GameModeName, GameOptions, DesiredPlayerCount, BotSkillLevel, bTeamGame);
 	}
 }
 
@@ -797,6 +798,40 @@ FReply SUTGameSetupDialog::OnButtonClick(uint16 ButtonID)
 		{
 			PlayerOwner->GetProfileSettings()->DefaultBotSkillLevel = BotSkillLevel;
 			PlayerOwner->SaveProfileSettings();
+		}
+
+		if (bHubMenu)
+		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				if (CustomPanel.IsValid())
+				{
+					FString GameMode;
+					FString StartingMap;
+					FString Description;
+					FString GameModeName;
+
+					TArray<FString> GameOptions;
+
+					int32 DesiredPlayerCount = 0;
+					int32 bTeamGame = 0;
+
+					GetCustomGameSettings(GameMode, StartingMap, Description, GameModeName, GameOptions, DesiredPlayerCount, bTeamGame);
+
+					FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("HUB - Create - %s"), *GameModeName));
+				}
+				else
+				{
+					if (SelectedRuleset.IsValid())
+					{
+						AUTGameMode* DefaultGameMode = SelectedRuleset->GetDefaultGameModeObject();
+						if (DefaultGameMode)
+						{
+							FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("HUB - Create - %s"), *DefaultGameMode->DisplayName.ToString()));
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -932,11 +967,13 @@ void SUTGameSetupDialog::ConfigureMatchInfo(TWeakObjectPtr<AUTLobbyMatchInfo> Ma
 		FString GameMode;
 		FString StartingMap;
 		FString Description;
+		FString GameModeName;
+
 		TArray<FString> GameOptions;
 
 		int32 DesiredPlayerCount = 0;
 		int32 bTeamGame = 0;
-		GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, bTeamGame);
+		GetCustomGameSettings(GameMode, StartingMap, Description, GameModeName, GameOptions, DesiredPlayerCount, bTeamGame);
 		MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, BotSkillLevel, DesiredPlayerCount, bTeamGame != 0, bRankLocked, bSpectatable, bPrivateMatch, bBeginnerMatch);
 	}
 

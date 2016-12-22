@@ -671,10 +671,12 @@ void SUTMainMenu::StartGame(bool bLanGame)
 	{
 		FString GameMode;
 		FString Description;
+		FString GameModeName;
+
 		TArray<FString> GameOptionsList;
 		int32 DesiredPlayerCount = 0;
 		int32 bTeamGame;
-		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptionsList, DesiredPlayerCount,bTeamGame);	
+		CreateGameDialog->GetCustomGameSettings(GameMode, StartingMap, Description, GameModeName, GameOptionsList, DesiredPlayerCount,bTeamGame);	
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *GameMode);
 		for (int32 i = 0; i < GameOptionsList.Num(); i++)
 		{
@@ -695,7 +697,8 @@ void SUTMainMenu::StartGame(bool bLanGame)
 			if (FUTAnalytics::IsAvailable())
 			{
 				GameOptions += FUTAnalytics::AnalyticsLoggedGameOptionTrue;
-				FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Custom Game - %s"),*GameMode));
+				
+				FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Custom Game - %s"),*GameModeName));
 			}
 		}
 	}
@@ -723,7 +726,15 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable() && CurrentRule)
 		{
 			GameOptions += FUTAnalytics::AnalyticsLoggedGameOptionTrue;
-			FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Predefined Game Type - %s"), *CurrentRule->GameMode));
+			
+			if (DefaultGameMode)
+			{
+				FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Predefined Game Type - %s"), *DefaultGameMode->DisplayName.ToString()));
+			}
+			else
+			{
+				FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Predefined Game Type - %s"), *CurrentRule->GameMode));
+			}
 		}
 	}
 

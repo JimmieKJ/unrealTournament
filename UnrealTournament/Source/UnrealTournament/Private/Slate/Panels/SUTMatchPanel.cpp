@@ -1071,7 +1071,10 @@ FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 					{
 						if (FUTAnalytics::IsAvailable())
 						{
-							FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Joined Match"));
+							if (InItem.IsValid() && InItem->MatchInfo.IsValid() && InItem->MatchInfo->CurrentRuleset.IsValid())
+							{
+								FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("HUB - %s"), *InItem->MatchInfo->CurrentRuleset->GameMode));
+							}
 						}
 
 						LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
