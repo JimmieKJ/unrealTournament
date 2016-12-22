@@ -40,6 +40,7 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	TutorialAnnouncements.Add(TEXT("SecTrans"));
 	TutorialAnnouncements.Add(TEXT("TransRapidly"));
 	TutorialAnnouncements.Add(TEXT("TeleFrag"));
+	HighlightText = NSLOCTEXT("Weapon", "TranslocHighlightText", "Telefragger");
 }
 
 void AUTWeap_Translocator::PostInitProperties()

@@ -43,6 +43,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Sniper;
 	TutorialAnnouncements.Add(TEXT("PriSniper"));
 	TutorialAnnouncements.Add(TEXT("SecSniper"));
+	HighlightText = NSLOCTEXT("Weapon", "SniperHighlightText", "One Man One Bullet");
 }
 
 float AUTWeap_Sniper::GetHeadshotScale() const

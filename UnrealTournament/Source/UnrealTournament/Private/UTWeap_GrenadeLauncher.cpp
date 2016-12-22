@@ -15,6 +15,7 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 
 	ShotsStatsName = NAME_BioLauncherShots;
 	HitsStatsName = NAME_BioLauncherHits;
+	HighlightText = NSLOCTEXT("Weapon", "GrenadeHighlightText", "Hot Potato");
 }
 
 bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)

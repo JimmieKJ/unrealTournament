@@ -60,6 +60,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	TutorialAnnouncements.Add(TEXT("PriLinkGun"));
 	TutorialAnnouncements.Add(TEXT("SecLinkGun"));
+	HighlightText = NSLOCTEXT("Weapon", "LinkHighlightText", "Plasma Boy");
 }
 
 void AUTWeap_LinkGun::AttachToOwner_Implementation()

@@ -70,6 +70,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	TutorialAnnouncements.Add(TEXT("PriRocketLauncher"));
 	TutorialAnnouncements.Add(TEXT("SecRocketLauncher"));
+	HighlightText = NSLOCTEXT("Weapon", "RockerHighlightText", "I am the Rocketman");
 }
 
 void AUTWeap_RocketLauncher::Destroyed()

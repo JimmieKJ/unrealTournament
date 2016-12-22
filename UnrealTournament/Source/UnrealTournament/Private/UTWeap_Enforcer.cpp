@@ -65,6 +65,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Enforcer;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Enforcer;
+
+	HighlightText = NSLOCTEXT("Weapon", "EnforcerHighlightText", "Gunslinger");
 }
 
 void AUTWeap_Enforcer::AttachLeftMesh()

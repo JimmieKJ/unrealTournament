@@ -44,6 +44,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	TutorialAnnouncements.Add(TEXT("PriRedeemer"));
 	TutorialAnnouncements.Add(TEXT("SecRedeemer"));
+	HighlightText = NSLOCTEXT("Weapon", "RedeemerHighlightText", "Fear no Evil");
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
