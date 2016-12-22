@@ -17,6 +17,7 @@
 
 void SUTGameSetupDialog::Construct(const FArguments& InArgs)
 {
+	CurrentTabIndex = -1;
 	bBeginnerMatch = false;
 	bUserTurnedOffRankCheck = false;
 	bHubMenu = InArgs._PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL;
@@ -153,6 +154,9 @@ void SUTGameSetupDialog::BuildCategories()
 
 FReply SUTGameSetupDialog::OnTabButtonClick(int32 ButtonIndex)
 {
+	if (ButtonIndex == CurrentTabIndex) return FReply::Handled();
+	CurrentTabIndex = ButtonIndex;
+
 	// Toggle the state of the tabs
 	for (int32 i=0; i < Tabs.Num(); i++)
 	{
@@ -275,6 +279,7 @@ void SUTGameSetupDialog::BuildRuleList(FName Category)
 					SAssignNew(Button, SUTTabButton)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
 					.OnClicked(this, &SUTGameSetupDialog::OnRuleClick, Cnt)
+					.IsToggleButton(true)
 					[
 						SNew(SVerticalBox)
 						+SVerticalBox::Slot()
@@ -329,26 +334,29 @@ FReply SUTGameSetupDialog::OnRuleClick(int32 RuleIndex)
 		}
 
 
-		SelectedRuleset = RuleSubset[RuleIndex].Ruleset;
-
-		TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		if (MatchOwner.IsValid() && MatchOwner->IsABeginner(SelectedRuleset.IsValid() ? SelectedRuleset->GetDefaultGameModeObject() : NULL))
+		if (SelectedRuleset != RuleSubset[RuleIndex].Ruleset)
 		{
-			bBeginnerMatch = true;
+			SelectedRuleset = RuleSubset[RuleIndex].Ruleset;
 
-			// We are a beginner....
-			if (!bUserTurnedOffRankCheck)
+			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (MatchOwner.IsValid() && MatchOwner->IsABeginner(SelectedRuleset.IsValid() ? SelectedRuleset->GetDefaultGameModeObject() : NULL))
 			{
-				cbRankLocked->SetIsChecked(ECheckBoxState::Checked);
-				MatchOwner->NotifyBeginnerAutoLock();
-			}
-		}
-		else
-		{
-			bBeginnerMatch = false;
-		}
+				bBeginnerMatch = true;
 
-		BuildMapList();
+				// We are a beginner....
+				if (!bUserTurnedOffRankCheck)
+				{
+					cbRankLocked->SetIsChecked(ECheckBoxState::Checked);
+					MatchOwner->NotifyBeginnerAutoLock();
+				}
+			}
+			else
+			{
+				bBeginnerMatch = false;
+			}
+
+			BuildMapList();
+		}
 	}
 
 	return FReply::Handled();

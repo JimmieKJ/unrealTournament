@@ -277,6 +277,9 @@ protected:
 
 	FText GetBotSkillText() const;
 	virtual void OnBotSkillChanged(float NewValue);
+
+	int32 CurrentTabIndex;
+
 public:
 	FString GetSelectedMap();
 
