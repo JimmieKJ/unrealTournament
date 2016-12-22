@@ -5951,7 +5951,7 @@ void UUTLocalPlayer::SetTutorialFinished(int32 TutorialMask)
 			}
 			else if (TutorialMask <= TUTORIAL_Pickups && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves) )
 			{
-				ShowToast(NSLOCTEXT("Unlocks","OfflineChallengesUnlocked","Achievement: Got the Skills\nOffline Challenges Unlocked!"),6.0f);			
+				ShowToast(NSLOCTEXT("Unlocks","OfflineChallengesUnlocked","Achievement: Got the Skills"),6.0f);			
 			}
 
 			if (TutorialMask > TUTORIAL_Pickups)
