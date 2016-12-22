@@ -140,7 +140,7 @@ protected:
 	 *
 	 * @param NewValue The value to commit.
 	 */
-	void CommitValue(float NewValue);
+	virtual void CommitValue(float NewValue);
 
 	/**
 	 * Calculates the new value based on the given absolute coordinates.
@@ -151,7 +151,7 @@ protected:
 	 */
 	float PositionToValue( const FGeometry& MyGeometry, const FVector2D& AbsolutePosition );
 
-private:
+protected:
 
 	// Holds the style passed to the widget upon construction.
 	const FSliderStyle* Style;

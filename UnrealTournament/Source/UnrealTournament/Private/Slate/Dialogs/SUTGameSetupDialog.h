@@ -12,6 +12,7 @@
 #include "UTReplicatedGameRuleset.h"
 #include "../Panels/SUTCreateGamePanel.h"
 #include "UTGameEngine.h"
+#include "../Widgets/SUTSlider.h"
 
 #if !UE_SERVER
 
@@ -268,9 +269,14 @@ protected:
 	TSharedPtr<SCheckBox> cbSpectatable;
 	TSharedPtr<SCheckBox> cbPrivateMatch;
 
+	TSharedPtr<SUTSlider> sBotSkill;
+
 	bool bBeginnerMatch;
 	bool bUserTurnedOffRankCheck;
 	void RankCheckChanged(ECheckBoxState NewState);
+
+	FText GetBotSkillText() const;
+	virtual void OnBotSkillChanged(float NewValue);
 public:
 	FString GetSelectedMap();
 

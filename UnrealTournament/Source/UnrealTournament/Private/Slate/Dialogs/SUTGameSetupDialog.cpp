@@ -802,59 +802,52 @@ TSharedRef<SWidget> SUTGameSetupDialog::BuildBotSkill()
 			SNew(STextBlock)
 			.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tween")
 			.Text(NSLOCTEXT("SUTGameSetupDialog","BotSkillCaption","Bot Skill Level:"))
-		];
-
-	TArray<FText> ButtonTexts;
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","NoBots","No Bots"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Novice","Novice")); 
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Average","Average"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Experienced","Experienced"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Skilled","Skilled"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Adept","Adept"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Masterful","Masterful"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Inhuman","Inhuman"));
-	ButtonTexts.Add(NSLOCTEXT("BotSkillLevels","Godlike","Godlike"));
-
-	TSharedPtr<SUTTabButton> Button;
-	BotSkillButtons.Empty();
-	for (int32 i=0; i < ButtonTexts.Num(); i++)
-	{
-		Final->AddSlot().AutoWidth().Padding(10.0f,0.0f,0.0f,0.0f)
+		]
+		+SHorizontalBox::Slot().AutoWidth().Padding(10.0f,0.0f,10.0f,0.0f)
 		[
-			SAssignNew(Button,SUTTabButton)
-			.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-			.Text(ButtonTexts[i])
-			.ButtonStyle(SUTStyle::Get(), "UT.OptionButton")
-		
-			.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tween.Bold")
-			.ClickMethod(EButtonClickMethod::MouseDown)
-			.OnClicked(this, &SUTGameSetupDialog::OnBotSkillClick, i)
+			SNew(SBox).WidthOverride(600)
+			[
+				SAssignNew(sBotSkill, SUTSlider)
+				.SnapCount(9)
+				.IndentHandle(false)
+				.Value(3.0f / 8.0f)
+				.Style(SUTStyle::Get(), "UT.Slider")
+				.OnValueChanged(this, &SUTGameSetupDialog::OnBotSkillChanged)
+			]
+		]
+		+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+			.Text(this, &SUTGameSetupDialog::GetBotSkillText)
 		];
 
-		BotSkillButtons.Add(Button);
-	}
 
-	OnBotSkillClick(3);
 	return Final.ToSharedRef();
 }
 
-
-FReply SUTGameSetupDialog::OnBotSkillClick(int32 NewSkill)
+void SUTGameSetupDialog::OnBotSkillChanged(float NewValue)
 {
-	BotSkillLevel = NewSkill - 1;
-	for (int32 i=0; i < BotSkillButtons.Num(); i++)
+	BotSkillLevel = int32(8.0f * sBotSkill->GetValue()) - 1;
+}
+
+FText SUTGameSetupDialog::GetBotSkillText() const
+{
+	int32 Skill = int32(8.0f * sBotSkill->GetValue());
+	switch (Skill)
 	{
-		if (i == NewSkill)
-		{
-			BotSkillButtons[i]->BePressed();
-		}
-		else
-		{
-			BotSkillButtons[i]->UnPressed();
-		}
+		case 0: return NSLOCTEXT("BotSkillLevels","NoBots","No Bots"); break;
+		case 1: return NSLOCTEXT("BotSkillLevels","Novice","Novice"); break;
+		case 2: return NSLOCTEXT("BotSkillLevels","Average","Average"); break;
+		case 3: return NSLOCTEXT("BotSkillLevels","Experienced","Experienced"); break;
+		case 4: return NSLOCTEXT("BotSkillLevels","Skilled","Skilled"); break;
+		case 5: return NSLOCTEXT("BotSkillLevels","Adept","Adept"); break;
+		case 6: return NSLOCTEXT("BotSkillLevels","Masterful","Masterful"); break;
+		case 7: return NSLOCTEXT("BotSkillLevels","Inhuman","Inhuman"); break;
+		case 8: return NSLOCTEXT("BotSkillLevels","Godlike","Godlike"); break;
 	}
 
-	return FReply::Handled();
+	return NSLOCTEXT("BotSkillLevels","Broken","Broken");
 }
 
 void SUTGameSetupDialog::AddButtonsToLeftOfButtonBar(uint32& ButtonCount)
