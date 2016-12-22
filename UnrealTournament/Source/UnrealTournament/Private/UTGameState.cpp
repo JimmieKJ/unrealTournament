@@ -2013,6 +2013,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 					PS->MatchHighlights[Index] = NAME_None;
 					PS->MatchHighlightData[Index] = 0.f;
 				}
+				Index--;
 			}
 
 			if (PS->MatchHighlights[0] == NAME_None)
