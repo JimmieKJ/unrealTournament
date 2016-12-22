@@ -376,6 +376,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	uint32 bAllowSlideFromRun : 1;
 
+	/** Holds the default bot skill level this player wants to use */
+	UPROPERTY(BlueprintReadOnly, Category = System)
+	int32 DefaultBotSkillLevel;
+
 public:
 
 	// Accessor functions.  NOTE: If you add a function here, please make sure it's blueprint callable.

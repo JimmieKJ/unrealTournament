@@ -783,6 +783,15 @@ void SUTGameSetupDialog::Tick(const FGeometry& AllottedGeometry, const double In
 
 FReply SUTGameSetupDialog::OnButtonClick(uint16 ButtonID)
 {
+	if (ButtonID == UTDIALOG_BUTTON_PLAY || ButtonID == UTDIALOG_BUTTON_OK)
+	{
+		if (PlayerOwner->GetProfileSettings())
+		{
+			PlayerOwner->GetProfileSettings()->DefaultBotSkillLevel = BotSkillLevel;
+			PlayerOwner->SaveProfileSettings();
+		}
+	}
+
 	if (ButtonID == UTDIALOG_BUTTON_CANCEL && CustomPanel.IsValid())
 	{
 		CustomPanel->Cancel();		
@@ -794,6 +803,7 @@ FReply SUTGameSetupDialog::OnButtonClick(uint16 ButtonID)
 
 TSharedRef<SWidget> SUTGameSetupDialog::BuildBotSkill()
 {
+	int32 DefaultBotSkill = PlayerOwner->GetProfileSettings() ? PlayerOwner->GetProfileSettings()->DefaultBotSkillLevel + 1 : 3;
 
 	TSharedPtr<SHorizontalBox> Final;
 	SAssignNew(Final, SHorizontalBox)
@@ -805,12 +815,12 @@ TSharedRef<SWidget> SUTGameSetupDialog::BuildBotSkill()
 		]
 		+SHorizontalBox::Slot().AutoWidth().Padding(10.0f,0.0f,10.0f,0.0f)
 		[
-			SNew(SBox).WidthOverride(600)
+			SNew(SBox).WidthOverride(400)
 			[
 				SAssignNew(sBotSkill, SUTSlider)
 				.SnapCount(9)
 				.IndentHandle(false)
-				.Value(3.0f / 8.0f)
+				.InitialSnap(DefaultBotSkill)
 				.Style(SUTStyle::Get(), "UT.Slider")
 				.OnValueChanged(this, &SUTGameSetupDialog::OnBotSkillChanged)
 			]
@@ -828,7 +838,7 @@ TSharedRef<SWidget> SUTGameSetupDialog::BuildBotSkill()
 
 void SUTGameSetupDialog::OnBotSkillChanged(float NewValue)
 {
-	BotSkillLevel = int32(8.0f * sBotSkill->GetValue()) - 1;
+	BotSkillLevel = sBotSkill->GetSnapValue() - 1;
 }
 
 FText SUTGameSetupDialog::GetBotSkillText() const

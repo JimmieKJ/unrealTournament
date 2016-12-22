@@ -15,6 +15,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 {
 	bNeedProfileWriteOnLevelChange = false;
 	HUDTeammateScaleOverride = 0.39f;
+	DefaultBotSkillLevel = 2;
 }
 
 void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
@@ -132,6 +133,9 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		MatchmakingRegion = TEXT("");
 		bPushToTalk = true;
 		bHearsTaunts = DefaultUTPlayerController ? DefaultUTPlayerController->bHearsTaunts : true;
+
+		DefaultBotSkillLevel = 2;
+
 	}
 
 	if (SectionToReset == EProfileResetType::All || SectionToReset == EProfileResetType::Weapons)

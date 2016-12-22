@@ -25,6 +25,11 @@ void SUTSlider::Construct( const FArguments& InArgs )
 		.OnControllerCaptureBegin(InArgs._OnControllerCaptureBegin)
 		.OnControllerCaptureEnd(InArgs._OnControllerCaptureEnd)
 		.OnValueChanged(InArgs._OnValueChanged));
+
+	if (SnapCount.Get() > 0)
+	{
+		SnapTo(InArgs._InitialSnap);
+	}
 }
 
 void SUTSlider::CommitValue(float NewValue)
@@ -154,109 +159,23 @@ int32 SUTSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 	);
 
 	return LayerId;
+}
 
-
-/*
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	LayerId = SSlider::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
-
-	if (SnapCount.Get() > 1)
+void SUTSlider::SnapTo(int32 SnapIndex)
+{
+	if (SnapCount.Get() > 0 && SnapIndex < SnapCount.Get())
 	{
-		int32 BarLayer = LayerId - 1;
-
-		// Duplicate of the code in the parent function.
-		const float AllottedWidth = Orientation == Orient_Horizontal ? AllottedGeometry.GetLocalSize().X : AllottedGeometry.GetLocalSize().Y;
-		const float AllottedHeight = Orientation == Orient_Horizontal ? AllottedGeometry.GetLocalSize().Y : AllottedGeometry.GetLocalSize().X;
-
-		// calculate slider geometry as if it's a horizontal slider (we'll rotate it later if it's vertical)
-		const FVector2D HandleSize = Style->NormalThumbImage.ImageSize;
-		const FVector2D HalfHandleSize = 0.5f * HandleSize;
-		const float Indentation = IndentHandle.Get() ? HandleSize.X : 0.0f;
-
-		const float SliderLength = AllottedWidth - Indentation;
-		const float SliderY = 0.5f * AllottedHeight;
-		const float TickSpacing = SliderLength / float(SnapCount.Get());
-		FVector2D TickPosition = FVector2D(HalfHandleSize.X, SliderY);
-
-		const float SliderPercent = ValueAttribute.Get();
-		const float SliderHandleOffset = SliderPercent * SliderLength;
-
-		UE_LOG(UT,Warning,TEXT("Draw: %f %f %f %f %f"), SliderLength, SliderPercent, SliderHandleOffset, HandleSize.X, TickSpacing);
-
-		FSlateRect RotatedClippingRect = MyClippingRect;
-		FGeometry SliderGeometry = AllottedGeometry;
-
-		// rotate the slider 90deg if it's vertical. The 0 side goes on the bottom, the 1 side on the top.
-		if (Orientation == Orient_Vertical)
-		{
-			// Do this by translating along -X by the width of the geometry, then rotating 90 degreess CCW (left-hand coords)
-			FSlateRenderTransform SlateRenderTransform = TransformCast<FSlateRenderTransform>(Concatenate(Inverse(FVector2D(AllottedWidth, 0)), FQuat2D(FMath::DegreesToRadians(-90.0f))));
-			// create a child geometry matching this one, but with the render transform.
-			SliderGeometry = AllottedGeometry.MakeChild(
-				FVector2D(AllottedWidth, AllottedHeight), 
-				FSlateLayoutTransform(), 
-				SlateRenderTransform, FVector2D::ZeroVector);
-			// The clipping rect is already given properly in window space. But we do not support layout rotations, so our local space rendering cannot
-			// get the clipping rect into local space properly for the local space clipping we do in the shader.
-			// Thus, we transform the clip coords into local space manually, UNDO the render transform so it will clip properly,
-			// and then bring the clip coords back into window space where DrawElements expect them.
-			RotatedClippingRect = TransformRect(
-				Concatenate(
-					Inverse(SliderGeometry.GetAccumulatedLayoutTransform()), 
-					Inverse(SlateRenderTransform),
-					SliderGeometry.GetAccumulatedLayoutTransform()), 
-				MyClippingRect);
-		}
-
-		const ESlateDrawEffect::Type DrawEffects = ESlateDrawEffect::None;
-
-		for (int32 Tick = 0; Tick < SnapCount.Get(); Tick++)
-		{
-			// Draw the tick
-			auto BarTopLeft = FVector2D(TickPosition.X - 1, TickPosition.Y - Style->BarThickness * 2);
-			auto BarSize = FVector2D(3, Style->BarThickness * 4.0f);
-
-			UE_LOG(UT,Warning,TEXT("            %f"), BarTopLeft.X);
-
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId,
-				SliderGeometry.ToPaintGeometry(BarTopLeft, BarSize),
-				LockedAttribute.Get() ? &Style->DisabledBarImage : &Style->NormalBarImage,
-				RotatedClippingRect,
-				DrawEffects,
-				SliderBarColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
-				);
-
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId,
-				SliderGeometry.ToPaintGeometry(BarTopLeft + FVector2D(0,-50), BarSize),
-				LockedAttribute.Get() ? &Style->DisabledBarImage : &Style->NormalBarImage,
-				RotatedClippingRect,
-				DrawEffects,
-				SliderBarColor.Get().GetColor(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
-				);
-
-
-			TickPosition.X += TickSpacing;
-		}
+		SetValue(float(SnapIndex) / float(SnapCount.Get()-1));
 	}
-	return LayerId;
-*/
+	else
+	{
+		SetValue(1.0f);
+	}
+}
+
+int32 SUTSlider::GetSnapValue()
+{
+	return int32( float(SnapCount.Get()) * GetValue() );
 }
 
 

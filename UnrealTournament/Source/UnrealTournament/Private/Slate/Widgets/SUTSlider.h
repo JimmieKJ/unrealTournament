@@ -23,6 +23,7 @@ class UNREALTOURNAMENT_API SUTSlider : public SSlider
 		, _OnMouseCaptureBegin()
 		, _OnMouseCaptureEnd()
 		, _OnValueChanged()
+		, _InitialSnap(0)
 		{ }
 
 		/** Whether the slidable area should be indented to fit the handle. */
@@ -70,12 +71,22 @@ class UNREALTOURNAMENT_API SUTSlider : public SSlider
 		/** Called when the value is changed by the slider. */
 		SLATE_EVENT( FOnFloatValueChanged, OnValueChanged )
 
+		/** will attempt to set the initial value to a given snap */
+		SLATE_ARGUMENT(int32, InitialSnap)
+
+
 	SLATE_END_ARGS()
 
 public:
 
 	void Construct(const FArguments& InArgs);
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
+
+	/** Snaps to a given index */
+	virtual void SnapTo(int32 SnapIndex);
+
+	/** returns the current snap value */
+	virtual int32 GetSnapValue();
 
 protected:
 	TAttribute<int32> SnapCount;
