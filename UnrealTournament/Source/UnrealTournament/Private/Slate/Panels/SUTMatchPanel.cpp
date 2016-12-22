@@ -1073,7 +1073,7 @@ FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 						{
 							if (InItem.IsValid() && InItem->MatchInfo.IsValid() && InItem->MatchInfo->CurrentRuleset.IsValid())
 							{
-								FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("HUB - %s"), *InItem->MatchInfo->CurrentRuleset->GameMode));
+								FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("HUB - Join - %s"), *InItem->MatchInfo->CurrentRuleset->GameMode));
 							}
 						}
 
