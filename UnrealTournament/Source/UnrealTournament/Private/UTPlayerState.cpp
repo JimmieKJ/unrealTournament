@@ -2176,6 +2176,26 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 	VBox->AddSlot()
 	.AutoHeight()
 	[
+		BuildLeagueInfoPane(NAME_FlagRunSkillRating.ToString(), NSLOCTEXT("Generic", "FlagrunLeagueHeader", "Flagrun League"))
+	];
+
+	VBox->AddSlot()
+	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SBox)
+		.HeightOverride(2.f)
+		[
+			SNew(SImage)
+			.Image(SUTStyle::Get().GetBrush("UT.Divider.Black"))
+		]
+	];
+	
+
+
+	VBox->AddSlot()
+	.AutoHeight()
+	[
 		BuildLeagueInfoPane(NAME_RankedShowdownSkillRating.ToString(), NSLOCTEXT("Generic", "ShowdownLeagueHeader", "3v3 Showdown League"))
 	];
 	
@@ -2214,6 +2234,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 	[
 		BuildLeagueInfoPane(NAME_RankedDuelSkillRating.ToString(), NSLOCTEXT("Generic", "DuelLeagueHeader", "1v1 Duel League"))
 	];
+
 
 	return VBox;
 }
