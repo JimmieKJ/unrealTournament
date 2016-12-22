@@ -326,6 +326,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, Category = UI)
 	bool bHideInCrosshairMenu;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Weapon")
+		FText HighlightText;
+
 	/** Hack for adjusting first person weapon mesh at different FOVs (until we have separate render pass for first person weapon. */
 	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	FVector FOVOffset;

@@ -2142,6 +2142,10 @@ FText AUTGameState::ShortPlayerHighlightText(AUTPlayerState* PS)
 	{
 		return FText::GetEmpty();
 	}
+	if (PS->FavoriteWeapon && ((PS->MatchHighlights[0] == HighlightNames::WeaponKills) || (PS->MatchHighlights[0] == HighlightNames::MostWeaponKills)))
+	{
+		return PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->HighlightText;
+	}
 	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
 	FText HighlightText = !ShortHighlightMap.FindRef(PS->MatchHighlights[0]).IsEmpty() ? ShortHighlightMap.FindRef(PS->MatchHighlights[0]) : HighlightMap.FindRef(PS->MatchHighlights[0]);
 	return FText::Format(HighlightText, FText::AsNumber(PS->MatchHighlightData[0]), BestWeaponText);

@@ -102,6 +102,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	BaseAISelectRating = 0.55f;
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
+	HighlightText = NSLOCTEXT("Weapon", "HighlightText", "Weapon Master");
 	bShowPowerupTimer = false;
 
 	bCheckHeadSphere = false;
