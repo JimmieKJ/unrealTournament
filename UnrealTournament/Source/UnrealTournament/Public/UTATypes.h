@@ -254,6 +254,9 @@ namespace HighlightNames
 	const FName SpecialForces = FName(TEXT("SpecialForces"));
 	const FName HiredGun = FName(TEXT("HiredGun"));
 	const FName HappyToBeHere = FName(TEXT("HappyToBeHere"));
+	const FName HardToKill = FName(TEXT("HardToKill"));
+	const FName Rallies = FName(TEXT("Rallies"));
+	const FName RallyPointPowered = FName(TEXT("RallyPointPowered"));
 
 }
 

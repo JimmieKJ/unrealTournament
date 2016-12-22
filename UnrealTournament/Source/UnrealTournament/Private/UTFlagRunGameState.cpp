@@ -53,6 +53,9 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	HighlightMap.Add(HighlightNames::WeaponKills, NSLOCTEXT("AUTGameMode", "WeaponKills", "{0} kills with {1}"));
 	HighlightMap.Add(HighlightNames::KillingBlowsAward, NSLOCTEXT("AUTGameMode", "KillingBlowsAward", "{0} killing blows"));
 	HighlightMap.Add(HighlightNames::MostKillingBlowsAward, NSLOCTEXT("AUTGameMode", "MostKillingBlowsAward", "Most killing blows ({0})"));
+	HighlightMap.Add(HighlightNames::HardToKill, NSLOCTEXT("AUTGameMode", "HardToKill", "Only died {0} times"));
+	HighlightMap.Add(HighlightNames::Rallies, NSLOCTEXT("AUTGameMode", "Rallies", "{0} Rallies"));
+	HighlightMap.Add(HighlightNames::RallyPointPowered, NSLOCTEXT("AUTGameMode", "RallyPointPowered", "{0} RallyPoints Powered"));
 
 	ShortHighlightMap.Add(HighlightNames::BadMF, NSLOCTEXT("AUTGameMode", "BadMF", "Bad MotherF**ker"));
 	ShortHighlightMap.Add(HighlightNames::LikeABoss, NSLOCTEXT("AUTGameMode", "LikeABoss", "Like a Boss"));
@@ -68,6 +71,9 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	ShortHighlightMap.Add(HighlightNames::WeaponKills, NSLOCTEXT("AUTGameMode", "ShortWeaponKills", "Weapon Master"));
 	ShortHighlightMap.Add(HighlightNames::KillingBlowsAward, NSLOCTEXT("AUTGameMode", "ShortKillingBlowsAward", "Nice Shot"));
 	ShortHighlightMap.Add(HighlightNames::MostKillingBlowsAward, NSLOCTEXT("AUTGameMode", "ShortMostKillingBlowsAward", "Punisher"));
+	ShortHighlightMap.Add(HighlightNames::HardToKill, NSLOCTEXT("AUTGameMode", "ShortHardToKill", "Hard to Kill"));
+	ShortHighlightMap.Add(HighlightNames::Rallies, NSLOCTEXT("AUTGameMode", "ShortRallies", "Beam me Up"));
+	ShortHighlightMap.Add(HighlightNames::RallyPointPowered, NSLOCTEXT("AUTGameMode", "ShortRallyPointPowered", "Power Source"));
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -520,7 +526,8 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		}
 	}
 
-	// flag cap FIXMESTEVE
+	int32 NumRallies = PS->GetRoundStatsValue(NAME_Rallies);
+	int32 NumRalliesPowered = PS->GetRoundStatsValue(NAME_RalliesPowered);
 
 	if (bHasMultipleKillWeapon)
 	{
@@ -530,12 +537,26 @@ void AUTFlagRunGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	}
 	else if (PS->GetRoundStatsValue(NAME_FCKills) > 1)
 	{
-		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
+		PS->AddMatchHighlight(NAME_FCKills, PS->GetRoundStatsValue(NAME_FCKills));
+	}
+	else if (PS->RoundKills >= FMath::Max(3, 2 * PS->RoundDeaths))
+	{
+		PS->MatchHighlights[0] = HighlightNames::HardToKill;
 	}
 	else if (PS->RoundKills > FMath::Max(1, PS->RoundKillAssists))
 	{
 		PS->MatchHighlights[0] = HighlightNames::KillingBlowsAward;
 		PS->MatchHighlightData[0] = PS->RoundKills;
+	}
+	else if (!bHaveRallyPoweredHighlight && (NumRalliesPowered > 1))
+	{
+		PS->AddMatchHighlight(HighlightNames::RallyPointPowered, NumRalliesPowered);
+		bHaveRallyPoweredHighlight = true;
+	}
+	else if (!bHaveRallyHighlight && (NumRallies > 3))
+	{
+		PS->AddMatchHighlight(HighlightNames::Rallies, NumRallies);
+		bHaveRallyHighlight = true;
 	}
 	else if (PS->RoundKills + PS->RoundKillAssists > 0)
 	{
@@ -561,6 +582,9 @@ void AUTFlagRunGameState::UpdateHighlights_Implementation()
 		AUTGameState::UpdateHighlights_Implementation();
 		return;
 	}
+
+	bHaveRallyHighlight = false;
+	bHaveRallyPoweredHighlight = false;
 
 	//Collect all the weapons
 	TArray<AUTWeapon *> StatsWeapons;

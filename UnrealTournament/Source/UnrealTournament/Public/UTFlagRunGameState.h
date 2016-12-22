@@ -89,6 +89,13 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY(BlueprintReadOnly, Replicated)
 		bool bEnemyRallyPointIdentified;
 
+	/** Used during highlight generation. */
+	UPROPERTY(BlueprintReadWrite)
+		bool bHaveRallyHighlight;
+
+	UPROPERTY(BlueprintReadWrite)
+		bool bHaveRallyPoweredHighlight;
+
 	UFUNCTION()
 		void OnBonusLevelChanged();
 

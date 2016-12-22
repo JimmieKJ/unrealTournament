@@ -57,6 +57,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	DamageDone = 0;
 	RoundDamageDone = 0;
 	RoundKills = 0;
+	RoundDeaths = 0;
 	RoundKillAssists = 0;
 	bOutOfLives = false;
 	Deaths = 0;
@@ -643,6 +644,7 @@ void AUTPlayerState::OnWeaponSpreeDamage()
 void AUTPlayerState::IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState)
 {
 	Deaths += 1;
+	RoundDeaths += 1;
 
 	ModifyStatsValue(NAME_Deaths, 1);
 	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
@@ -1204,6 +1206,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->RoundKills = RoundKills;
+		PS->RoundDeaths = RoundDeaths;
 		PS->DamageDone = DamageDone;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;

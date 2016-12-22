@@ -279,6 +279,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 ThisLifeDamageDone;
 
+	/** Deaths by this player this round - not replciated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 RoundDeaths;
+
 	/** Enemy kills by this player this life. */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 		int32 ThisLifeKills;
