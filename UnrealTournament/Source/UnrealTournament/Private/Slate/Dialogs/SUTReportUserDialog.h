@@ -34,7 +34,7 @@ public:
 	void Construct(const FArguments& InArgs);
 
 protected:
-
+	FReply OnButtonClick(uint16 ButtonID);
 	TWeakObjectPtr<class AUTPlayerState> Troll;
 	TSharedRef<SWidget> AddGridButton(FText Caption, int32 AbuseType);
 	FReply OnReportClicked(int32 ReportType);

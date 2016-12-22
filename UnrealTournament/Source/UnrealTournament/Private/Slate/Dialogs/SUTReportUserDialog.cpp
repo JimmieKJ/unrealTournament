@@ -171,4 +171,10 @@ FReply SUTReportUserDialog::OnReportClicked(int32 ReportType)
 	return FReply::Handled();
 }
 
+FReply SUTReportUserDialog::OnButtonClick(uint16 ButtonID)
+{
+	PlayerOwner->CloseAbuseDialog();
+	return FReply::Handled();
+}
+
 #endif
