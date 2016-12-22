@@ -2181,7 +2181,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildLeagueInfo()
 	VBox->AddSlot()
 	.AutoHeight()
 	[
-		BuildLeagueInfoPane(NAME_FlagRunSkillRating.ToString(), NSLOCTEXT("Generic", "FlagrunLeagueHeader", "Flagrun League"))
+		BuildLeagueInfoPane(NAME_RankedFlagRunSkillRating.ToString(), NSLOCTEXT("Generic", "FlagrunLeagueHeader", "5v5 Flag Run League"))
 	];
 
 	VBox->AddSlot()
