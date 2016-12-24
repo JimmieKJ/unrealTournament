@@ -732,7 +732,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Crouch", "Crouch button will trigger slide if moving."))
+					.Text(NSLOCTEXT("SUTControlSettingsDialog", "Slide From Crouch", "Crouch button will trigger slide if moving"))
 				]
 			]
 			+ SHorizontalBox::Slot()
